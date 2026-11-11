@@ -1,0 +1,320 @@
+From 9abfdd2640bc83608e347e2180cd30198001cb64 Mon Sep 17 00:00:00 2001
+From: Nate Graham <nate@kde.org>
+Date: Fri, 14 Mar 2025 16:23:58 -0600
+Subject: [PATCH] kcm/users: refine "deleting logged-in user" UX
+
+Right now there are two problems:
+1. Deleting a logged-in user shows no warning about this.
+2. Asking to delete the files of a logged-in user fails silently
+   (AccountsService simply won't do it).
+
+This commit solves both problems: now the user sees a warning dialog
+when they try to delete another logged-in user, and it also prevents
+them from trying to delete a logged-in user's files, instead redirecting
+them to just delete the account but not the files.
+
+To achieve this, I needed to change what the `loggedIn` property does,
+because previously it was inaccurate, returning whether the queried user
+is the currently logged-in user. Now it returns whether the quaried user
+is logged in, and I added a new `isMe` property to hold whether the
+queried user is the currently logged-in user.
+
+BUG: 495494
+FIXED-IN: 6.4.0
+---
+ kcms/users/src/CMakeLists.txt         |  1 +
+ kcms/users/src/ui/UserDetailsPage.qml | 46 +++++++++++++++++++++++----
+ kcms/users/src/ui/main.qml            |  2 +-
+ kcms/users/src/user.cpp               | 26 ++++++++++++---
+ kcms/users/src/user.h                 |  7 +++-
+ kcms/users/src/usermodel.cpp          | 11 ++++---
+ kcms/users/src/usermodel.h            |  3 +-
+ 7 files changed, 79 insertions(+), 17 deletions(-)
+
+diff --git a/kcms/users/src/CMakeLists.txt b/kcms/users/src/CMakeLists.txt
+index 45aed3c970..5848d376a7 100644
+--- a/kcms/users/src/CMakeLists.txt
++++ b/kcms/users/src/CMakeLists.txt
+@@ -69,6 +69,7 @@ target_link_libraries(kcm_users PRIVATE
+     KF6::I18n
+     KF6::KCMUtilsQuick
+     KF6::Wallet
++    PW::KWorkspace
+     Qt::DBus
+     crypt
+ )
+diff --git a/kcms/users/src/ui/UserDetailsPage.qml b/kcms/users/src/ui/UserDetailsPage.qml
+index c83fa7e0e1..e5950d0879 100644
+--- a/kcms/users/src/ui/UserDetailsPage.qml
++++ b/kcms/users/src/ui/UserDetailsPage.qml
+@@ -36,8 +36,8 @@ KCM.SimpleKCM {
+     Connections {
+         target: user
+         function onPasswordSuccessfullyChanged() {
+-            // Prompt to change the wallet password of the logged-in user
+-            if (usersDetailPage.user.loggedIn && usersDetailPage.user.usesDefaultWallet()) {
++            // Prompt to change the wallet password of the current user
++            if (usersDetailPage.user.isCurrentUser && usersDetailPage.user.usesDefaultWallet()) {
+                 changeWalletPassword.open()
+             }
+         }
+@@ -81,6 +81,15 @@ KCM.SimpleKCM {
+         return pending
+     }
+ 
++    function deleteUser(uid: int, deleteUserFiles: bool) {
++        if (usersDetailPage.user.loggedIn) {
++            deleteLoggedInUserWarningDialog.askedToDeleteUserFilesWhenImpossible = deleteUserFiles
++            deleteLoggedInUserWarningDialog.open()
++        } else {
++            kcm.mainUi.deleteUser(usersDetailPage.user.uid, deleteUserFiles)
++        }
++    }
++
+     Component.onCompleted: {
+         kcm.needsSave = Qt.binding(resolvePending)
+     }
+@@ -93,6 +102,31 @@ KCM.SimpleKCM {
+         position: Kirigami.InlineMessage.Position.Header
+     }
+ 
++    Kirigami.PromptDialog {
++        id: deleteLoggedInUserWarningDialog
++
++        property bool askedToDeleteUserFilesWhenImpossible: false
++
++        parent: usersDetailPage.QQC2.Overlay.overlay
++        maximumWidth: Kirigami.Units.gridUnit * 30
++
++        title: askedToDeleteUserFilesWhenImpossible
++            ? i18nc("@title:window", "Delete Logged-In User Without Deleting Files?")
++            : i18nc("@title:window", "Delete Logged-In User?")
++        subtitle: askedToDeleteUserFilesWhenImpossible
++            ? xi18nc("@info:usagetip", "%1 is currently logged in, so their files cannot be deleted. Delete just the account instead?<nl/><nl/>This will make %1 unable to log in again, and they may experience strange behaviors until they log out.", usersDetailPage.user.displayPrimaryName)
++            : i18nc("@info:usagetip", "%1 is currently logged in. Deleting the account will make them unable to log in again, and they may experience strange behaviors until they log out.", usersDetailPage.user.displayPrimaryName)
++        dialogType: Kirigami.PromptDialog.Warning
++        standardButtons: Kirigami.Dialog.Ok | Kirigami.Dialog.Cancel
++
++        onAccepted: kcm.mainUi.deleteUser(usersDetailPage.user.uid, false)
++
++        Component.onCompleted: {
++            standardButton(Kirigami.Dialog.Ok).text = i18nc("@action: button", "Delete %1", usersDetailPage.user.realName)
++            standardButton(Kirigami.Dialog.Ok).icon.name = "edit-delete"
++        }
++    }
++
+     ColumnLayout {
+         KirigamiComponents.AvatarButton {
+             readonly property int size: 6 * Kirigami.Units.gridUnit
+@@ -193,7 +227,7 @@ KCM.SimpleKCM {
+             QQC2.Button {
+                 id: deleteUser
+ 
+-                enabled: !usersDetailPage.user.loggedIn && (!kcm.userModel.rowCount() < 2)
++                enabled: !usersDetailPage.user.isCurrentUser
+ 
+                 KeyNavigation.down: fingerprintButton
+ 
+@@ -204,14 +238,14 @@ KCM.SimpleKCM {
+                         text: i18n("Delete files")
+                         icon.name: "edit-delete-shred"
+                         onClicked: {
+-                            kcm.mainUi.deleteUser(usersDetailPage.user.uid, true)
++                            usersDetailPage.deleteUser(usersDetailPage.user.uid, true);
+                         }
+                     }
+                     QQC2.MenuItem {
+                         text: i18n("Keep files")
+                         icon.name: "document-multiple"
+                         onClicked: {
+-                            kcm.mainUi.deleteUser(usersDetailPage.user.uid, false)
++                            usersDetailPage.deleteUser(usersDetailPage.user.uid, false);
+                         }
+                     }
+                 }
+@@ -236,7 +270,7 @@ KCM.SimpleKCM {
+                 if (kcm.fingerprintModel.currentlyEnrolling) {
+                     kcm.fingerprintModel.stopEnrolling();
+                 }
+-                kcm.fingerprintModel.switchUser(user.name == kcm.userModel.getLoggedInUser().name ? "" : user.name);
++                kcm.fingerprintModel.switchUser(user.name == kcm.userModel.getCurrentUser().name ? "" : user.name);
+ 
+                 if (fingerprintButton.dialog === null) {
+                     const component = Qt.createComponent("FingerprintDialog.qml");
+diff --git a/kcms/users/src/ui/main.qml b/kcms/users/src/ui/main.qml
+index a76bcab20c..cbc223ea5e 100644
+--- a/kcms/users/src/ui/main.qml
++++ b/kcms/users/src/ui/main.qml
+@@ -71,7 +71,7 @@ KCM.ScrollViewKCM {
+             kcm.columnWidth = Kirigami.Units.gridUnit * 15
+ 
+             // Push users page on desktop for two pane layout
+-            kcm.push("UserDetailsPage.qml", { user: kcm.userModel.getLoggedInUser() })
++            kcm.push("UserDetailsPage.qml", { user: kcm.userModel.getCurrentUser() })
+         }
+     }
+ 
+diff --git a/kcms/users/src/user.cpp b/kcms/users/src/user.cpp
+index d13bcb365e..63efdd853e 100644
+--- a/kcms/users/src/user.cpp
++++ b/kcms/users/src/user.cpp
+@@ -17,6 +17,7 @@
+ #include <QImage>
+ #include <QImageWriter>
+ #include <config-workspace.h>
++#include <kdisplaymanager.h>
+ #include <sys/types.h>
+ #include <unistd.h>
+ 
+@@ -225,12 +226,24 @@ void User::loadData()
+         userDataChanged = true;
+         Q_EMIT administratorChanged();
+     }
+-    const auto loggedIn = (mUid == getuid());
+-    if (mLoggedIn != loggedIn) {
+-        mLoggedIn = loggedIn;
+-        mOriginalLoggedIn = mLoggedIn;
++
++    mIsCurrentUser = (mUid == getuid());
++
++    mOriginalLoggedIn = mLoggedIn;
++
++    SessList sessions;
++    KDisplayManager displayManager;
++    displayManager.localSessions(sessions);
++    for (auto s : sessions) {
++        if (s.user == mOriginalName)
++            mLoggedIn = true;
++    }
++
++    if (mOriginalLoggedIn != mLoggedIn) {
+         userDataChanged = true;
++        Q_EMIT loggedInChanged();
+     }
++
+     if (userDataChanged) {
+         Q_EMIT dataChanged();
+     }
+@@ -348,6 +361,11 @@ void User::changeWalletPassword()
+     KWallet::Wallet::changePassword(QStringLiteral("kdewallet"), 1);
+ }
+ 
++bool User::isCurrentUser() const
++{
++    return mIsCurrentUser;
++}
++
+ bool User::loggedIn() const
+ {
+     return mLoggedIn;
+diff --git a/kcms/users/src/user.h b/kcms/users/src/user.h
+index 335855c4f7..e7f330c32e 100644
+--- a/kcms/users/src/user.h
++++ b/kcms/users/src/user.h
+@@ -77,7 +77,9 @@ class User : public QObject
+ 
+     Q_PROPERTY(bool faceValid READ faceValid NOTIFY faceValidChanged)
+ 
+-    Q_PROPERTY(bool loggedIn READ loggedIn CONSTANT)
++    Q_PROPERTY(bool isCurrentUser READ isCurrentUser CONSTANT)
++
++    Q_PROPERTY(bool loggedIn READ loggedIn NOTIFY loggedInChanged)
+ 
+     Q_PROPERTY(bool administrator READ administrator WRITE setAdministrator NOTIFY administratorChanged)
+ 
+@@ -96,6 +98,7 @@ public:
+     QString email() const;
+     QUrl face() const;
+     bool faceValid() const;
++    bool isCurrentUser() const;
+     bool loggedIn() const;
+     bool administrator() const;
+     QDBusObjectPath path() const;
+@@ -126,6 +129,7 @@ Q_SIGNALS:
+     void realNameChanged();
+     void displayNamesChanged();
+     void emailChanged();
++    void loggedInChanged();
+     void faceChanged();
+     void faceValidChanged();
+     void administratorChanged();
+@@ -150,6 +154,7 @@ private:
+     bool mOriginalAdministrator = false;
+     bool mFaceValid = false;
+     bool mOriginalFaceValid = false;
++    bool mIsCurrentUser = false;
+     bool mLoggedIn = false;
+     bool mOriginalLoggedIn = false;
+     QDBusObjectPath mPath;
+diff --git a/kcms/users/src/usermodel.cpp b/kcms/users/src/usermodel.cpp
+index 8be299659b..868caf0d82 100644
+--- a/kcms/users/src/usermodel.cpp
++++ b/kcms/users/src/usermodel.cpp
+@@ -83,7 +83,7 @@ UserModel::UserModel(QObject *parent)
+     }
+ 
+     std::ranges::stable_partition(m_userList, [](User *u) {
+-        return u->loggedIn();
++        return u->isCurrentUser();
+     });
+ 
+     connect(this, &QAbstractItemModel::rowsInserted, this, &UserModel::moreThanOneAdminUserChanged);
+@@ -103,6 +103,7 @@ QHash<int, QByteArray> UserModel::roleNames() const
+     names.insert(AdministratorRole, QByteArrayLiteral("administrator"));
+     names.insert(UserRole, QByteArrayLiteral("userObject"));
+     names.insert(FaceValidRole, QByteArrayLiteral("faceValid"));
++    names.insert(IsCurrentUserRole, QByteArrayLiteral("isCurrentUser"));
+     names.insert(LoggedInRole, QByteArrayLiteral("loggedIn"));
+     names.insert(SectionHeaderRole, QByteArrayLiteral("sectionHeader"));
+     return names;
+@@ -110,10 +111,10 @@ QHash<int, QByteArray> UserModel::roleNames() const
+ 
+ UserModel::~UserModel() = default;
+ 
+-User *UserModel::getLoggedInUser() const
++User *UserModel::getCurrentUser() const
+ {
+     for (const auto user : std::as_const(m_userList)) {
+-        if (user->loggedIn()) {
++        if (user->isCurrentUser()) {
+             return user;
+         }
+     }
+@@ -161,10 +162,12 @@ QVariant UserModel::data(const QModelIndex &index, int role) const
+         return QFile::exists(user->face().path());
+     case UserRole:
+         return QVariant::fromValue(user);
++    case IsCurrentUserRole:
++        return user->isCurrentUser();
+     case LoggedInRole:
+         return user->loggedIn();
+     case SectionHeaderRole:
+-        return user->loggedIn() ? i18n("Your Account") : i18n("Other Accounts");
++        return user->isCurrentUser() ? i18n("Your Account") : i18n("Other Accounts");
+     }
+ 
+     return QVariant();
+diff --git a/kcms/users/src/usermodel.h b/kcms/users/src/usermodel.h
+index a9c1efeba9..167107ae43 100644
+--- a/kcms/users/src/usermodel.h
++++ b/kcms/users/src/usermodel.h
+@@ -29,6 +29,7 @@ public:
+         FaceValidRole,
+         AdministratorRole,
+         UserRole,
++        IsCurrentUserRole,
+         LoggedInRole,
+         SectionHeaderRole,
+     };
+@@ -42,7 +43,7 @@ public:
+     QVariant data(const QModelIndex &index, int role) const override;
+     int rowCount(const QModelIndex &parent = QModelIndex()) const override;
+ 
+-    Q_INVOKABLE User *getLoggedInUser() const;
++    Q_INVOKABLE User *getCurrentUser() const;
+ 
+     QHash<int, QByteArray> roleNames() const override;
+ 
+-- 
+GitLab
+

@@ -1,0 +1,45 @@
+From b9bc83c656189c212dd0cf7faf254efc0241f31a Mon Sep 17 00:00:00 2001
+From: Christoph Wolk <cwo.kde@posteo.net>
+Date: Sat, 17 May 2025 07:38:00 +0000
+Subject: [PATCH] applets/systemmonitor: skip configure button on sensorless
+ faces
+
+Some faces don't need sensors as they have their data included already,
+namely Process Table and Application Table. The applet does not take
+this into account and keeps showing the "Configure" button.
+
+Instead, don't show that button if one of these faces is the current
+face.
+
+BUG: 504335
+FIXED-IN: 6.4.0
+
+
+(cherry picked from commit 184e883786520d6a7494b4db69dad29d69ff63a6)
+
+Co-authored-by: Christoph Wolk <cwo.kde@posteo.net>
+---
+ .../systemmonitor/package/contents/ui/main.qml             | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/applets/systemmonitor/systemmonitor/package/contents/ui/main.qml b/applets/systemmonitor/systemmonitor/package/contents/ui/main.qml
+index 6d4480cae8a..ebc2ba40755 100644
+--- a/applets/systemmonitor/systemmonitor/package/contents/ui/main.qml
++++ b/applets/systemmonitor/systemmonitor/package/contents/ui/main.qml
+@@ -67,7 +67,12 @@ PlasmoidItem {
+     fullRepresentation: FullRepresentation {
+     }
+ 
+-    Plasmoid.configurationRequired: (Plasmoid.faceController ?? false) && Plasmoid.faceController.highPrioritySensorIds.length == 0 && Plasmoid.faceController.lowPrioritySensorIds.length == 0 && Plasmoid.faceController.totalSensors.length == 0
++    Plasmoid.configurationRequired: (Plasmoid.faceController ?? false) &&
++        Plasmoid.faceController.highPrioritySensorIds.length == 0 &&
++        Plasmoid.faceController.lowPrioritySensorIds.length == 0 &&
++        Plasmoid.faceController.totalSensors.length == 0 &&
++        ! (["org.kde.ksysguard.applicationstable",
++            "org.kde.ksysguard.processtable"].includes(Plasmoid.faceController.faceId))
+ 
+     Sensors.Sensor {
+         id: totalSensor
+-- 
+GitLab
+

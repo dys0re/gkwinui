@@ -1,0 +1,44 @@
+From d1896f5ac7367a96d710afcd84278760678f36f0 Mon Sep 17 00:00:00 2001
+From: Christoph Wolk <cwo.kde@posteo.net>
+Date: Mon, 23 Jun 2025 20:03:27 +0000
+Subject: [PATCH] applets/kicker: resolve non-existing files to their url
+
+Kicker's PAStats-based favorites do some normalization to, among others,
+resolve symlinked files to their resolved path to reduce duplicates.
+However, if the file doesn't exist, it essentially just gives up. This
+is a problem when trying to remove favorites that were deleted: while
+the un-favoriting in PAStats succeeds, kicker can't remove it from its
+own model because it can't identify the file by its url if it doesn't
+exist. So removed favorites confusingly stick around until the next
+plasmashell restart.
+
+Instead, we take the base url in that case - as the entries already have
+gone through the process, the url is their real url anyway.
+
+BUG: 402820
+FIXED-IN: 6.4.1
+
+
+(cherry picked from commit da244b8764cde5509598965f24804bbaa5e0939f)
+
+Co-authored-by: Christoph Wolk <cwo.kde@posteo.net>
+---
+ applets/kicker/kastatsfavoritesmodel.cpp | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/applets/kicker/kastatsfavoritesmodel.cpp b/applets/kicker/kastatsfavoritesmodel.cpp
+index b9cda44a0f..b425c88f9a 100644
+--- a/applets/kicker/plugin/kastatsfavoritesmodel.cpp
++++ b/applets/kicker/plugin/kastatsfavoritesmodel.cpp
+@@ -116,6 +116,8 @@ public:
+                     m_id = QUrl::fromLocalFile(file.canonicalFilePath()).toString();
+                     return;
+                 }
++                // if the file was deleted, take the url as-is
++                m_id = url.toString();
+             }
+ 
+             // If this is a file, we should have already covered it
+-- 
+GitLab
+

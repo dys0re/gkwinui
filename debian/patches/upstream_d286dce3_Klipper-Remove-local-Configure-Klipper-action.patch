@@ -1,0 +1,51 @@
+From d286dce389e90428f04115fdb631a381d4942641 Mon Sep 17 00:00:00 2001
+From: Akseli Lahtinen <akselmo@akselmo.dev>
+Date: Thu, 19 Jun 2025 20:46:12 +0300
+Subject: [PATCH] Klipper: Remove local Configure Klipper action
+
+This action would cause the shortcuts configuration menu to show
+both local and global shortcuts, which makes no sense due to
+Klipper being a globally accessed application.
+
+This action is only used in cases where Klipper will be it's own
+application with a normal window, similar to applications like Dolphin,
+Kate, etc.. But Klipper is never used this way.
+
+Currently only place where you can use this action is the configuration
+menu itself, where it does nothing, since the menu is already open.
+
+So let's just remove it. This also makes sure users do not accidentally
+select "Shortcut/Alternate" instead of "Global Shortcut/Alternate"
+for their shortcuts. See the related bug for context.
+
+BUG: 501632
+FIXED-IN: 6.4.1
+
+
+(cherry picked from commit 1d3fe2ac0c0e640f0b66ec1e1d34f0e0196bbd7d)
+
+Co-authored-by: Akseli Lahtinen <akselmo@akselmo.dev>
+---
+ klipper/klipper.cpp | 6 ------
+ 1 file changed, 6 deletions(-)
+
+diff --git a/klipper/klipper.cpp b/klipper/klipper.cpp
+index 3bdbf3b831..0fec260e54 100644
+--- a/klipper/klipper.cpp
++++ b/klipper/klipper.cpp
+@@ -110,12 +110,6 @@ Klipper::Klipper(QObject *parent)
+     KGlobalAccel::setGlobalShortcut(m_clearHistoryAction, QKeySequence());
+     connect(m_clearHistoryAction, &QAction::triggered, m_historyModel.get(), &HistoryModel::clearHistory);
+ 
+-    QString CONFIGURE = QStringLiteral("configure");
+-    m_configureAction = m_collection->addAction(CONFIGURE);
+-    m_configureAction->setIcon(QIcon::fromTheme(CONFIGURE));
+-    m_configureAction->setText(i18nc("@action:inmenu", "&Configure Klipper…"));
+-    connect(m_configureAction, &QAction::triggered, this, &Klipper::slotConfigure);
+-
+     m_repeatAction = m_collection->addAction(QStringLiteral("repeat_action"));
+     m_repeatAction->setText(i18nc("@action:inmenu", "Manually Invoke Action on Current Clipboard"));
+     m_repeatAction->setIcon(QIcon::fromTheme(QStringLiteral("open-menu-symbolic")));
+-- 
+GitLab
+

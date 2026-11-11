@@ -1,0 +1,90 @@
+From 5d008e00c295a3a036220dbeb3bd3e1582d005da Mon Sep 17 00:00:00 2001
+From: Vlad Zahorodnii <vlad.zahorodnii@kde.org>
+Date: Wed, 23 Apr 2025 14:34:28 +0300
+Subject: [PATCH] applets/appmenu: Store dbus menu importer in a
+ std::unique_ptr
+
+The code is simpler this way.
+---
+ applets/appmenu/plugin/appmenumodel.cpp | 26 ++++++++-----------------
+ applets/appmenu/plugin/appmenumodel.h   |  2 +-
+ 2 files changed, 9 insertions(+), 19 deletions(-)
+
+diff --git a/applets/appmenu/plugin/appmenumodel.cpp b/applets/appmenu/plugin/appmenumodel.cpp
+index db3b351405..99263b3ad4 100644
+--- a/applets/appmenu/plugin/appmenumodel.cpp
++++ b/applets/appmenu/plugin/appmenumodel.cpp
+@@ -25,8 +25,8 @@
+ class KDBusMenuImporter : public DBusMenuImporter
+ {
+ public:
+-    KDBusMenuImporter(const QString &service, const QString &path, QObject *parent)
+-        : DBusMenuImporter(service, path, parent)
++    KDBusMenuImporter(const QString &service, const QString &path)
++        : DBusMenuImporter(service, path)
+     {
+     }
+ 
+@@ -268,7 +268,7 @@ void AppMenuModel::updateApplicationMenu(const QString &serviceName, const QStri
+ {
+     if (m_serviceName == serviceName && m_menuObjectPath == menuObjectPath) {
+         if (m_importer) {
+-            QMetaObject::invokeMethod(m_importer, "updateMenu", Qt::QueuedConnection);
++            QMetaObject::invokeMethod(m_importer.get(), "updateMenu", Qt::QueuedConnection);
+         }
+         return;
+     }
+@@ -280,26 +280,16 @@ void AppMenuModel::updateApplicationMenu(const QString &serviceName, const QStri
+         m_serviceName = QString();
+         m_menuObjectPath = QString();
+         m_serviceWatcher->setWatchedServices({});
+-
+-        if (m_importer) {
+-            m_importer->disconnect(this);
+-            m_importer->deleteLater();
+-            m_importer = nullptr;
+-        }
++        m_importer.reset();
+     } else {
+         m_serviceName = serviceName;
+         m_menuObjectPath = menuObjectPath;
+         m_serviceWatcher->setWatchedServices(QStringList({m_serviceName}));
+ 
+-        if (m_importer) {
+-            m_importer->disconnect(this);
+-            m_importer->deleteLater();
+-        }
+-
+-        m_importer = new KDBusMenuImporter(serviceName, menuObjectPath, this);
+-        QMetaObject::invokeMethod(m_importer, "updateMenu", Qt::QueuedConnection);
++        m_importer = std::make_unique<KDBusMenuImporter>(serviceName, menuObjectPath);
++        QMetaObject::invokeMethod(m_importer.get(), "updateMenu", Qt::QueuedConnection);
+ 
+-        connect(m_importer.data(), &DBusMenuImporter::menuUpdated, this, [=, this](QMenu *menu) {
++        connect(m_importer.get(), &DBusMenuImporter::menuUpdated, this, [=, this](QMenu *menu) {
+             m_menu = m_importer->menu();
+             if (m_menu.isNull() || menu != m_menu) {
+                 return;
+@@ -330,7 +320,7 @@ void AppMenuModel::updateApplicationMenu(const QString &serviceName, const QStri
+             Q_EMIT modelNeedsUpdate();
+         });
+ 
+-        connect(m_importer.data(), &DBusMenuImporter::actionActivationRequested, this, [this](QAction *action) {
++        connect(m_importer.get(), &DBusMenuImporter::actionActivationRequested, this, [this](QAction *action) {
+             // TODO submenus
+             if (!m_menuAvailable || !m_menu) {
+                 return;
+diff --git a/applets/appmenu/plugin/appmenumodel.h b/applets/appmenu/plugin/appmenumodel.h
+index 2d283dc351..5d3f2f6415 100644
+--- a/applets/appmenu/plugin/appmenumodel.h
++++ b/applets/appmenu/plugin/appmenumodel.h
+@@ -93,5 +93,5 @@ private:
+     QString m_serviceName;
+     QString m_menuObjectPath;
+ 
+-    QPointer<KDBusMenuImporter> m_importer;
++    std::unique_ptr<KDBusMenuImporter> m_importer;
+ };
+-- 
+GitLab
+

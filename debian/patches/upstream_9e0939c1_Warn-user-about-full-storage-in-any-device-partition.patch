@@ -1,0 +1,478 @@
+From 9e0939c15db6a208b1b65547f9dcac2396cc54fb Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Niccol=C3=B2=20Venerandi?= <niccolo@venerandi.com>
+Date: Mon, 24 Mar 2025 18:57:07 +0100
+Subject: [PATCH] Warn user about full storage in any device/partition
+
+Currently, we only check for home and / partitions to be full
+when warning user. With this commit we instead check for all
+partitions / devices that are mounted and not read only.
+
+Co-authored-by: David Edmundson <kde@davidedmundson.co.uk>
+---
+ freespacenotifier/CMakeLists.txt              |  2 +-
+ freespacenotifier/freespacenotifier.cpp       | 73 +++++++--------
+ freespacenotifier/freespacenotifier.h         |  3 +-
+ freespacenotifier/freespacenotifier.kcfg      | 14 ++-
+ .../freespacenotifier_prefs_base.ui           | 69 +++++++++-----
+ freespacenotifier/module.cpp                  | 93 ++++++++++++++++---
+ freespacenotifier/module.h                    |  7 ++
+ freespacenotifier/settings.kcfgc              |  2 +-
+ 8 files changed, 183 insertions(+), 80 deletions(-)
+
+diff --git a/freespacenotifier/CMakeLists.txt b/freespacenotifier/CMakeLists.txt
+index c07bcf5c643..3612c1f0de7 100644
+--- a/freespacenotifier/CMakeLists.txt
++++ b/freespacenotifier/CMakeLists.txt
+@@ -21,7 +21,6 @@ kde_target_enable_exceptions(freespacenotifier PRIVATE)
+ 
+ target_link_libraries(freespacenotifier
+     Qt6::Concurrent
+-    QCoro::Core
+     KF6::ConfigWidgets
+     KF6::DBusAddons
+     KF6::I18n
+@@ -30,6 +29,7 @@ target_link_libraries(freespacenotifier
+     KF6::Notifications
+     KF6::JobWidgets
+     KF6::Service
++    KF6::Solid
+ )
+ 
+ ########### install files ###############
+diff --git a/freespacenotifier/freespacenotifier.cpp b/freespacenotifier/freespacenotifier.cpp
+index 25ed87d95aa..fef16cea347 100644
+--- a/freespacenotifier/freespacenotifier.cpp
++++ b/freespacenotifier/freespacenotifier.cpp
+@@ -14,23 +14,25 @@
+ #include <KNotificationJobUiDelegate>
+ 
+ #include <KIO/ApplicationLauncherJob>
++#include <KIO/FileSystemFreeSpaceJob>
+ #include <KIO/OpenUrlJob>
+ 
+-#include <QStorageInfo>
+-#include <QtConcurrent>
++#include <Solid/Device>
++#include <Solid/StorageAccess>
+ 
+-#include <QCoroFuture>
+-#include <QCoroTask>
++#include <QFileInfo>
+ 
+ #include <chrono>
+ 
+ #include "settings.h"
+ 
+-FreeSpaceNotifier::FreeSpaceNotifier(const QString &path, const KLocalizedString &notificationText, QObject *parent)
++FreeSpaceNotifier::FreeSpaceNotifier(const QString &udi, const QString &path, const KLocalizedString &notificationText, QObject *parent)
+     : QObject(parent)
++    , m_udi(udi)
+     , m_path(path)
+     , m_notificationText(notificationText)
+ {
++    checkFreeDiskSpace();
+     connect(&m_timer, &QTimer::timeout, this, &FreeSpaceNotifier::checkFreeDiskSpace);
+     m_timer.start(std::chrono::minutes(1));
+ }
+@@ -51,51 +53,44 @@ void FreeSpaceNotifier::checkFreeDiskSpace()
+         return;
+     }
+ 
+-    if (m_checking) {
+-        qCWarning(FSN) << "Obtaining storage info is taking a long while for" << m_path;
++    Solid::Device device(m_udi);
++
++    Solid::StorageAccess *storageaccess = device.as<Solid::StorageAccess>();
++    if (!storageaccess || !storageaccess->isAccessible()) {
++        qCDebug(FSN) << "Space Monitor: failed to get storage access " << m_udi;
+         return;
+     }
+-    m_checking = true;
+-
+-    // Load the QStorageInfo in a co-routine in case the filesystem is having performance issues.
+-    auto future = QtConcurrent::run([path = m_path]() -> std::optional<QStorageInfo> {
+-        QStorageInfo info(path);
+-        if (!info.isValid()) {
+-            qCWarning(FSN) << "Failed to obtain storage info for" << path;
+-            return {};
+-        }
+-        if (!info.isReady()) {
+-            qCWarning(FSN) << "Storage info is not ready for" << path;
+-            return {};
+-        }
+-        return info;
+-    });
+-    QCoro::connect(std::move(future), this, [this](const auto &optionalInfo) {
+-        m_checking = false;
+-        if (!optionalInfo.has_value()) {
+-            qCDebug(FSN) << "Empty QStorageInfo for" << m_path;
+-            return;
+-        }
+-        const QStorageInfo &info = optionalInfo.value();
+-        if (info.isReadOnly()) {
+-            qCDebug(FSN) << "Not checking for free space for read only mount point" << m_path;
++
++    QString path = storageaccess->filePath();
++
++    // create job
++    KIO::FileSystemFreeSpaceJob *job = KIO::fileSystemFreeSpace(QUrl::fromLocalFile(path));
++
++    // collect and process info
++    connect(job, &KJob::result, this, [this, job]() {
++        if (job->error()) {
++            qCDebug(FSN) << "Space Monitor: failed to get storage access " << m_udi;
+             return;
+         }
+-
+-        const int limit = FreeSpaceNotifierSettings::minimumSpace(); // MiB
+-        const qint64 avail = info.bytesAvailable() / (1024 * 1024); // to MiB
+-        qCDebug(FSN) << "Available MiB for" << m_path << ":" << avail;
++        KIO::filesize_t size = job->size();
++        KIO::filesize_t available = job->availableSize();
++        const qint64 totalSpaceMB = size / (1024 * 1024); // to MiB
++        const int percLimit = (FreeSpaceNotifierSettings::minimumSpacePercentage() * totalSpaceMB) / 100;
++        const int fixedLimit = FreeSpaceNotifierSettings::minimumSpace();
++        const int limit = qMin(fixedLimit, percLimit);
++        const qint64 avail = available / (1024 * 1024); // to MiB
+ 
+         if (avail >= limit) {
+             if (m_notification) {
+                 m_notification->close();
+             }
++            m_lastAvail = avail;
+             return;
+         }
+ 
+-        const int availPercent = int(100 * info.bytesAvailable() / info.bytesTotal());
++        const int availPercent = int(100 * available / size);
+         const QString text = m_notificationText.subs(avail).subs(availPercent).toString();
+-        qCDebug(FSN) << "Available percentage for" << m_path << ":" << availPercent;
++        qCDebug(FSN) << "Available percentage for" << m_udi << ":" << availPercent;
+ 
+         // Make sure the notification text is always up to date whenever we checked free space
+         if (m_notification) {
+@@ -109,7 +104,7 @@ void FreeSpaceNotifier::checkFreeDiskSpace()
+         }
+ 
+         // Always warn the first time or when available space dropped to half of the previous time
+-        const bool warn = (m_lastAvail < 0 || avail < m_lastAvail / 2);
++        const bool warn = (m_lastAvail >= limit || avail < m_lastAvail / 2);
+         if (!warn) {
+             return;
+         }
+@@ -180,7 +175,7 @@ void FreeSpaceNotifier::onNotificationClosed()
+ 
+ void FreeSpaceNotifier::resetLastAvailable()
+ {
+-    m_lastAvail = -1;
++    m_lastAvail = FreeSpaceNotifierSettings::minimumSpace();
+     m_lastAvailTimer->deleteLater();
+     m_lastAvailTimer = nullptr;
+ }
+diff --git a/freespacenotifier/freespacenotifier.h b/freespacenotifier/freespacenotifier.h
+index fe2ed6c9308..510e4afbbba 100644
+--- a/freespacenotifier/freespacenotifier.h
++++ b/freespacenotifier/freespacenotifier.h
+@@ -22,7 +22,7 @@ class FreeSpaceNotifier : public QObject
+     Q_OBJECT
+ 
+ public:
+-    explicit FreeSpaceNotifier(const QString &path, const KLocalizedString &notificationText, QObject *parent = nullptr);
++    explicit FreeSpaceNotifier(const QString &udi, const QString &path, const KLocalizedString &notificationText, QObject *parent = nullptr);
+     ~FreeSpaceNotifier() override;
+ 
+ Q_SIGNALS:
+@@ -39,6 +39,7 @@ private:
+     // Only run one check at a time
+     bool m_checking = false;
+ 
++    const QString m_udi;
+     const QString m_path;
+     KLocalizedString m_notificationText;
+ 
+diff --git a/freespacenotifier/freespacenotifier.kcfg b/freespacenotifier/freespacenotifier.kcfg
+index 51e02b3df2c..ab273cb1212 100644
+--- a/freespacenotifier/freespacenotifier.kcfg
++++ b/freespacenotifier/freespacenotifier.kcfg
+@@ -6,10 +6,16 @@
+   <kcfgfile name="freespacenotifierrc"/>
+   <group name="General">
+     <entry name="minimumSpace" type="Int">
+-	    <label>Minimum free space before user starts being notified.</label>
+-	    <default>200</default>
+-	    <min>1</min>
+-	    <max>100000</max>
++      <label>Minimum free space before user starts being notified.</label>
++      <default>200</default>
++      <min>1</min>
++      <max>100000</max>
++    </entry>
++    <entry name="minimumSpacePercentage" type="Int">
++      <label>Minimum percentage free space before user starts being notified.</label>
++      <default>5</default>
++      <min>1</min>
++      <max>30</max>
+     </entry>
+     <entry name="enableNotification" type="Bool">
+ 	    <label>Is the free space notification enabled.</label>
+diff --git a/freespacenotifier/freespacenotifier_prefs_base.ui b/freespacenotifier/freespacenotifier_prefs_base.ui
+index 7f93d49c009..78060916139 100644
+--- a/freespacenotifier/freespacenotifier_prefs_base.ui
++++ b/freespacenotifier/freespacenotifier_prefs_base.ui
+@@ -7,11 +7,11 @@
+     <x>0</x>
+     <y>0</y>
+     <width>320</width>
+-    <height>217</height>
++    <height>250</height>
+    </rect>
+   </property>
+   <layout class="QGridLayout" name="gridLayout">
+-   <item row="0" column="0">
++   <item row="0" column="0" colspan="2">
+     <widget class="QCheckBox" name="kcfg_enableNotification">
+      <property name="text">
+       <string>Enable low disk space warning</string>
+@@ -39,6 +39,39 @@
+     </widget>
+    </item>
+    <item row="2" column="0">
++    <widget class="QLabel" name="label_minimumSpacePercentage">
++     <property name="text">
++      <string>And when free space is under:</string>
++     </property>
++     <property name="alignment">
++      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
++     </property>
++    </widget>
++   </item>
++   <item row="2" column="1">
++    <widget class="QSpinBox" name="kcfg_minimumSpacePercentage">
++     <property name="suffix">
++      <string>%</string>
++     </property>
++     <property name="minimum">
++      <number>0</number>
++     </property>
++     <property name="maximum">
++      <number>100</number>
++     </property>
++    </widget>
++   </item>
++   <item row="3" column="0" colspan="2">
++    <widget class="QLabel" name="label_info">
++     <property name="text">
++      <string>The system will notify you if the free space drops below the specified MiB and the specified percentage of available space.</string>
++     </property>
++     <property name="wordWrap">
++      <bool>true</bool>
++     </property>
++    </widget>
++   </item>
++   <item row="4" column="0" colspan="2">
+     <spacer name="verticalSpacer">
+      <property name="orientation">
+       <enum>Qt::Vertical</enum>
+@@ -60,32 +93,24 @@
+    <signal>toggled(bool)</signal>
+    <receiver>kcfg_minimumSpace</receiver>
+    <slot>setEnabled(bool)</slot>
+-   <hints>
+-    <hint type="sourcelabel">
+-     <x>114</x>
+-     <y>15</y>
+-    </hint>
+-    <hint type="destinationlabel">
+-     <x>272</x>
+-     <y>44</y>
+-    </hint>
+-   </hints>
+   </connection>
+   <connection>
+    <sender>kcfg_enableNotification</sender>
+    <signal>toggled(bool)</signal>
+    <receiver>label_minimumSpace</receiver>
+    <slot>setEnabled(bool)</slot>
+-   <hints>
+-    <hint type="sourcelabel">
+-     <x>114</x>
+-     <y>15</y>
+-    </hint>
+-    <hint type="destinationlabel">
+-     <x>114</x>
+-     <y>44</y>
+-    </hint>
+-   </hints>
++  </connection>
++  <connection>
++   <sender>kcfg_enableNotification</sender>
++   <signal>toggled(bool)</signal>
++   <receiver>kcfg_minimumSpacePercentage</receiver>
++   <slot>setEnabled(bool)</slot>
++  </connection>
++  <connection>
++   <sender>kcfg_enableNotification</sender>
++   <signal>toggled(bool)</signal>
++   <receiver>label_minimumSpacePercentage</receiver>
++   <slot>setEnabled(bool)</slot>
+   </connection>
+  </connections>
+ </ui>
+diff --git a/freespacenotifier/module.cpp b/freespacenotifier/module.cpp
+index f4a6dbb7a3b..3d8e06c0a48 100644
+--- a/freespacenotifier/module.cpp
++++ b/freespacenotifier/module.cpp
+@@ -4,7 +4,7 @@
+     SPDX-FileCopyrightText: 2009 Ivo Anjo <knuckles@gmail.com>
+ 
+     SPDX-License-Identifier: GPL-2.0-or-later
+-*/
++ */
+ 
+ #include "module.h"
+ 
+@@ -12,6 +12,12 @@
+ #include <KMountPoint>
+ #include <KPluginFactory>
+ 
++#include <Solid/Device>
++#include <Solid/DeviceNotifier>
++#include <Solid/GenericInterface>
++#include <Solid/StorageAccess>
++#include <Solid/StorageVolume>
++
+ #include <QDir>
+ 
+ #include "kded_interface.h"
+@@ -28,20 +34,83 @@ FreeSpaceNotifierModule::FreeSpaceNotifierModule(QObject *parent, const QList<QV
+     // If the module is loaded, notifications are enabled
+     FreeSpaceNotifierSettings::setEnableNotification(true);
+ 
+-    const QString rootPath = QStringLiteral("/");
+-    const QString homePath = QDir::homePath();
++    auto m_notifier = Solid::DeviceNotifier::instance();
++    connect(m_notifier, &Solid::DeviceNotifier::deviceAdded, this, [this](const QString &udi) {
++        Solid::Device device(udi);
++
++        // Required for two stage devices
++        if (auto volume = device.as<Solid::StorageVolume>()) {
++            Solid::GenericInterface *iface = device.as<Solid::GenericInterface>();
++            if (iface) {
++                iface->setProperty("udi", udi);
++                connect(iface, &Solid::GenericInterface::propertyChanged, this, [this, udi]() {
++                    onNewSolidDevice(udi);
++                });
++            }
++        }
++        onNewSolidDevice(udi);
++    });
++    connect(m_notifier, &Solid::DeviceNotifier::deviceRemoved, this, [this](const QString &udi) {
++        stopTracking(udi);
++    });
+ 
+-    const QStorageInfo rootInfo(rootPath);
+-    const QStorageInfo homeInfo(homePath);
++    const auto devices = Solid::Device::listFromType(Solid::DeviceInterface::StorageAccess);
++    for (auto device : devices) {
++        onNewSolidDevice(device.udi());
++    };
++}
+ 
+-    // Always monitor home
+-    auto *homeNotifier = new FreeSpaceNotifier(homePath, ki18n("Your Home folder is running out of disk space, you have %1 MiB remaining (%2%)."), this);
+-    connect(homeNotifier, &FreeSpaceNotifier::configureRequested, this, &FreeSpaceNotifierModule::showConfiguration);
++void FreeSpaceNotifierModule::onNewSolidDevice(const QString &udi)
++{
++    Solid::Device device(udi);
++    Solid::StorageAccess *access = device.as<Solid::StorageAccess>();
++    if (!access) {
++        return;
++    }
++
++    // We only track a partition if we are able to
++    // determine that it's not read only.
++    bool isReadOnly = true;
++    if (auto generic = device.as<Solid::GenericInterface>()) {
++        isReadOnly = generic->property(QStringLiteral("ReadOnly")).toBool();
++    }
++    if (isReadOnly) {
++        return;
++    }
+ 
+-    // Monitor '/' when it is different from home
+-    if (rootInfo != homeInfo) {
+-        auto *rootNotifier = new FreeSpaceNotifier(rootPath, ki18n("Your Root partition is running out of disk space, you have %1 MiB remaining (%2%)."), this);
+-        connect(rootNotifier, &FreeSpaceNotifier::configureRequested, this, &FreeSpaceNotifierModule::showConfiguration);
++    if (access->isAccessible()) {
++        startTracking(udi, access);
++    }
++    connect(access, &Solid::StorageAccess::accessibilityChanged, this, [this, udi, access](bool available) {
++        if (available) {
++            startTracking(udi, access);
++        } else {
++            stopTracking(udi);
++        }
++    });
++}
++
++void FreeSpaceNotifierModule::startTracking(const QString &udi, Solid::StorageAccess *access)
++{
++    if (m_notifiers.contains(udi)) {
++        return;
++    }
++    Solid::Device device(udi);
++
++    KLocalizedString message = ki18n("Your %1 partition is running out of disk space; %2 MiB of space remaining (%3%).").subs(device.displayName());
++    if (access->filePath() == QStringLiteral("/")) {
++        message = ki18n("Your Root partition is running out of disk space; %1 MiB of space remaining (%2%).");
++    } else if (access->filePath() == QDir::homePath()) {
++        message = ki18n("Your Home folder is running out of disk space; %1 MiB of space remaining (%2%).");
++    }
++    auto *notifier = new FreeSpaceNotifier(udi, access->filePath(), message, this);
++    m_notifiers.insert(udi, notifier);
++}
++
++void FreeSpaceNotifierModule::stopTracking(const QString &udi)
++{
++    if (m_notifiers.contains(udi)) {
++        delete m_notifiers.take(udi);
+     }
+ }
+ 
+diff --git a/freespacenotifier/module.h b/freespacenotifier/module.h
+index 61ea4fdc2d0..47c725a0ed6 100644
+--- a/freespacenotifier/module.h
++++ b/freespacenotifier/module.h
+@@ -11,6 +11,8 @@
+ #include <KDEDModule>
+ #include <QObject>
+ 
++#include <Solid/StorageAccess>
++
+ #include "freespacenotifier.h"
+ 
+ class FreeSpaceNotifierModule : public KDEDModule
+@@ -21,4 +23,9 @@ public:
+ 
+ private:
+     void showConfiguration();
++    void onNewSolidDevice(const QString &udi);
++    void startTracking(const QString &udi, Solid::StorageAccess *access);
++    void stopTracking(const QString &udi);
++
++    QMap<QString, FreeSpaceNotifier *> m_notifiers;
+ };
+diff --git a/freespacenotifier/settings.kcfgc b/freespacenotifier/settings.kcfgc
+index 3997ce98614..31690fb0c14 100644
+--- a/freespacenotifier/settings.kcfgc
++++ b/freespacenotifier/settings.kcfgc
+@@ -2,5 +2,5 @@
+ File=freespacenotifier.kcfg
+ ClassName=FreeSpaceNotifierSettings
+ Singleton=true
+-Mutators=minimumSpace,enableNotification
++Mutators=minimumSpace,minimumSpacePercentage,enableNotification
+ # will create the necessary code for setting those variables
+-- 
+GitLab
+

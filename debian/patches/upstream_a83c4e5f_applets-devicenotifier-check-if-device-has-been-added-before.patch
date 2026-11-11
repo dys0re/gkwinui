@@ -1,0 +1,32 @@
+From a83c4e5f4139c47a8b36e94c75891e02739d8bde Mon Sep 17 00:00:00 2001
+From: Bohdan Onofriichuk <bogdan.onofriuchuk@gmail.com>
+Date: Mon, 5 May 2025 19:13:54 +0000
+Subject: [PATCH] applets/devicenotifier: check if device has been added before
+
+BUG: 495140
+
+Skip device if applet already has device with similar udi
+---
+ applets/devicenotifier/plugin/devicecontrol.cpp | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/applets/devicenotifier/plugin/devicecontrol.cpp b/applets/devicenotifier/plugin/devicecontrol.cpp
+index 4c76b3e1d5..bfe65ff0bf 100644
+--- a/applets/devicenotifier/plugin/devicecontrol.cpp
++++ b/applets/devicenotifier/plugin/devicecontrol.cpp
+@@ -152,6 +152,12 @@ QHash<int, QByteArray> DeviceControl::roleNames() const
+ void DeviceControl::onDeviceAdded(const QString &udi)
+ {
+     qCDebug(APPLETS::DEVICENOTIFIER) << "Device Controller: Added device signal arrived : " << udi;
++
++    if (m_actions.contains(udi)) {
++        qCDebug(APPLETS::DEVICENOTIFIER) << "Device Controller: Device already exists. Don't add another one : " << udi;
++        return;
++    }
++
+     Solid::Device device(udi);
+ 
+     if (!device.isValid()) {
+-- 
+GitLab
+

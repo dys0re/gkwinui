@@ -1,0 +1,28 @@
+From 8845c001e2de0ef1c97daf2bf7f2ca1e4efd1f34 Mon Sep 17 00:00:00 2001
+From: Oliver Beard <olib141@outlook.com>
+Date: Fri, 9 May 2025 15:38:00 +0100
+Subject: [PATCH] shell/Osd: Fix missing RTL PlasmaCore.Dialog does not set
+ LayoutMirroring for us, so we need to do it ourselves.
+
+BUG: 503255
+---
+ lookandfeel/org.kde.breeze/contents/osd/Osd.qml | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/lookandfeel/org.kde.breeze/contents/osd/Osd.qml b/lookandfeel/org.kde.breeze/contents/osd/Osd.qml
+index c498f997c8b..09aafdd0a4d 100644
+--- a/lookandfeel/org.kde.breeze/contents/osd/Osd.qml
++++ b/lookandfeel/org.kde.breeze/contents/osd/Osd.qml
+@@ -12,6 +12,9 @@ PlasmaCore.Dialog {
+     type: PlasmaCore.Dialog.OnScreenDisplay
+     outputOnly: true
+ 
++    LayoutMirroring.enabled: Qt.application.layoutDirection === Qt.RightToLeft
++    LayoutMirroring.childrenInherit: true
++
+     property alias timeout: osd.timeout
+     property alias osdValue: osd.osdValue
+     property alias osdMaxValue: osd.osdMaxValue
+-- 
+GitLab
+

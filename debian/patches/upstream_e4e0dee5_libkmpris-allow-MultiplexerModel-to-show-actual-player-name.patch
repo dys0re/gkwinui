@@ -1,0 +1,81 @@
+From e4e0dee55f750d8389a3d975360e6b6351e338f8 Mon Sep 17 00:00:00 2001
+From: Fushan Wen <qydwhotmail@gmail.com>
+Date: Mon, 24 Mar 2025 20:33:47 +0800
+Subject: [PATCH] libkmpris: allow MultiplexerModel to show actual player name
+
+The lock screen needs it to show the actual player name instead of
+"Choose player automatically"
+---
+ .../package/contents/ui/ExpandedRepresentation.qml         | 2 +-
+ libkmpris/autotests/data/tst_MultiplexerModel.qml          | 7 +++----
+ libkmpris/mpris2sourcemodel.cpp                            | 3 +++
+ libkmpris/mpris2sourcemodel.h                              | 1 +
+ libkmpris/multiplexermodel.cpp                             | 4 ++--
+ 5 files changed, 10 insertions(+), 7 deletions(-)
+
+diff --git a/applets/mediacontroller/package/contents/ui/ExpandedRepresentation.qml b/applets/mediacontroller/package/contents/ui/ExpandedRepresentation.qml
+index 8da82392731..8048a54b7ea 100644
+--- a/applets/mediacontroller/package/contents/ui/ExpandedRepresentation.qml
++++ b/applets/mediacontroller/package/contents/ui/ExpandedRepresentation.qml
+@@ -795,7 +795,7 @@ PlasmaExtras.Representation {
+                     display: PlasmaComponents3.AbstractButton.IconOnly
+                     icon.name: model.iconName
+                     icon.height: Kirigami.Units.iconSizes.smallMedium
+-                    text: model.identity
++                    text: model.isMultiplexer ? i18nc("@action:button", "Choose player automatically") : model.identity
+                     // Keep the delegate centered by offsetting the padding removed in the parent
+                     bottomPadding: verticalPadding + headerItem.bottomPadding
+                     topPadding: verticalPadding - headerItem.bottomPadding
+diff --git a/libkmpris/mpris2sourcemodel.cpp b/libkmpris/mpris2sourcemodel.cpp
+index 02d51dd071f..418acfdcd64 100644
+--- a/libkmpris/mpris2sourcemodel.cpp
++++ b/libkmpris/mpris2sourcemodel.cpp
+@@ -98,6 +98,8 @@ QVariant Mpris2SourceModel::dataFromPlayer(PlayerContainer *container, int role)
+         return container->instancePid();
+     case KDEPidRole:
+         return container->kdePid();
++    case IsMultiplexerRole:
++        return false;
+     case ContainerRole:
+         return QVariant::fromValue(container);
+     default:
+@@ -193,6 +195,7 @@ QHash<int, QByteArray> Mpris2SourceModel::roleNames() const
+         {IdentityRole, QByteArrayLiteral("identity")},
+         {IconNameRole, QByteArrayLiteral("iconName")},
+         {KDEPidRole, QByteArrayLiteral("kdePid")},
++        {IsMultiplexerRole, QByteArrayLiteral("isMultiplexer")},
+         {ContainerRole, QByteArrayLiteral("container")},
+     };
+ }
+diff --git a/libkmpris/mpris2sourcemodel.h b/libkmpris/mpris2sourcemodel.h
+index 7ad885faffe..6ed6ca15415 100644
+--- a/libkmpris/mpris2sourcemodel.h
++++ b/libkmpris/mpris2sourcemodel.h
+@@ -55,6 +55,7 @@ public:
+         IconNameRole,
+         InstancePidRole,
+         KDEPidRole,
++        IsMultiplexerRole,
+     };
+     Q_ENUM(Role)
+ 
+diff --git a/libkmpris/multiplexermodel.cpp b/libkmpris/multiplexermodel.cpp
+index 670aa5cd34f..9367d4b9df2 100644
+--- a/libkmpris/multiplexermodel.cpp
++++ b/libkmpris/multiplexermodel.cpp
+@@ -71,10 +71,10 @@ QVariant MultiplexerModel::data(const QModelIndex &index, int role) const
+     }
+ 
+     switch (role) {
+-    case Mpris2SourceModel::IdentityRole:
+-        return i18nc("@action:button", "Choose player automatically");
+     case Mpris2SourceModel::IconNameRole:
+         return QStringLiteral("emblem-favorite");
++    case Mpris2SourceModel::IsMultiplexerRole:
++        return true;
+     default:
+         return Mpris2SourceModel::dataFromPlayer(m_activePlayer, role);
+     }
+-- 
+GitLab
+

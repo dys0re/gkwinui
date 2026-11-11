@@ -1,0 +1,70 @@
+From e2ae8f54b0390b869770f59c257d45df99b24678 Mon Sep 17 00:00:00 2001
+From: Christoph Wolk <cwo.kde@posteo.net>
+Date: Thu, 5 Jun 2025 15:18:08 +0000
+Subject: [PATCH] libtaskmanager: fix "move to activity" when on almost all
+ activities
+
+Using the task manager to move windows to other activities works in
+most circumstances, but fails under one condition: when a window is
+already on all activities except the one that is being moved to, the
+window instead ends up on all activities, and has to be moved to that
+activity again to be only on that workspace. This is usually a rare edge
+case, but very commonly happens when using exactly two activities,
+namely always when moving a window from one activity to the other.
+
+This is the result of some unusual api implementation details of
+activities: a window being on all activities is represented by having
+the activity list for that window empty. Moving a window to a different
+activity in  libtaskmanager is done by first adding the window to the
+activity list using the plasma wayland protocol. If the list on the kwin
+side is now  full, it'll flip it over into the empty list (i.e. all
+activities). Next libtaskmanager tries to remove the other activities
+from the list, this fails because the list is already empty (and kwin
+doesn't handle this because "this use case is not important enough to
+handle here").
+
+Luckily enough, this use case is trivially easy to handle here, all we
+need to do is remove existing activities first, then add the new one.
+This will also briefly put it on all activities, but adding new
+activities works (and puts it only on that activity), it's only
+removing them that fails.
+
+BUG: 483148
+FIXED-IN: 6.4.0
+
+
+(cherry picked from commit 99f9dc95226719c2be53fd86a4a0a3bae88d0aa2)
+
+Co-authored-by: Christoph Wolk <cwo.kde@posteo.net>
+---
+ libtaskmanager/waylandtasksmodel.cpp | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/libtaskmanager/waylandtasksmodel.cpp b/libtaskmanager/waylandtasksmodel.cpp
+index 39d1307a8b..5d38da9aa4 100644
+--- a/libtaskmanager/waylandtasksmodel.cpp
++++ b/libtaskmanager/waylandtasksmodel.cpp
+@@ -1238,15 +1238,15 @@ void WaylandTasksModel::requestActivities(const QModelIndex &index, const QStrin
+     const auto plasmaActivities = window->activities;
+     const auto oldActivities = QSet(plasmaActivities.begin(), plasmaActivities.end());
+ 
+-    const auto activitiesToAdd = newActivities - oldActivities;
+-    for (const auto &activity : activitiesToAdd) {
+-        window->request_enter_activity(activity);
+-    }
+-
+     const auto activitiesToRemove = oldActivities - newActivities;
+     for (const auto &activity : activitiesToRemove) {
+         window->request_leave_activity(activity);
+     }
++
++    const auto activitiesToAdd = newActivities - oldActivities;
++    for (const auto &activity : activitiesToAdd) {
++        window->request_enter_activity(activity);
++    }
+ }
+ 
+ void WaylandTasksModel::requestPublishDelegateGeometry(const QModelIndex &index, const QRect &geometry, QObject *delegate)
+-- 
+GitLab
+

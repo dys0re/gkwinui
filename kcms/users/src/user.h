@@ -77,7 +77,9 @@ class User : public QObject
 
     Q_PROPERTY(bool faceValid READ faceValid NOTIFY faceValidChanged)
 
-    Q_PROPERTY(bool loggedIn READ loggedIn CONSTANT)
+    Q_PROPERTY(bool isCurrentUser READ isCurrentUser CONSTANT)
+
+    Q_PROPERTY(bool loggedIn READ loggedIn NOTIFY loggedInChanged)
 
     Q_PROPERTY(bool administrator READ administrator WRITE setAdministrator NOTIFY administratorChanged)
 
@@ -94,6 +96,7 @@ public:
     QString email() const;
     QUrl face() const;
     bool faceValid() const;
+    bool isCurrentUser() const;
     bool loggedIn() const;
     bool administrator() const;
     QDBusObjectPath path() const;
@@ -122,6 +125,7 @@ Q_SIGNALS:
     void realNameChanged();
     void displayNamesChanged();
     void emailChanged();
+    void loggedInChanged();
     void faceChanged();
     void faceValidChanged();
     void administratorChanged();
@@ -145,6 +149,7 @@ private:
     bool mOriginalAdministrator = false;
     bool mFaceValid = false;
     bool mOriginalFaceValid = false;
+    bool mIsCurrentUser = false;
     bool mLoggedIn = false;
     bool mOriginalLoggedIn = false;
     QDBusObjectPath mPath;

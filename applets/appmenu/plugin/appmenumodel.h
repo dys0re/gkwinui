@@ -91,5 +91,5 @@ private:
     QString m_serviceName;
     QString m_menuObjectPath;
 
-    QPointer<KDBusMenuImporter> m_importer;
+    std::unique_ptr<KDBusMenuImporter> m_importer;
 };

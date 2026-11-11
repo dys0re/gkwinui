@@ -1,0 +1,32 @@
+From fbb2e6d36adcafafb83250c853c0d7e47104db79 Mon Sep 17 00:00:00 2001
+From: Sune Vuorela <sune@vuorela.dk>
+Date: Thu, 13 Feb 2025 19:28:40 +0000
+Subject: [PATCH] users kcm: Fix issue in sorting user list
+
+If two users are logged in, the sorting order is not stable, both should be sorted before the other
+
+Use partition instead of sorting, since we only care about having moved logged in users up front.
+
+Found by: Kamil Kaznowski
+---
+ kcms/users/src/usermodel.cpp | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/kcms/users/src/usermodel.cpp b/kcms/users/src/usermodel.cpp
+index 9b3fc0fd97..8be299659b 100644
+--- a/kcms/users/src/usermodel.cpp
++++ b/kcms/users/src/usermodel.cpp
+@@ -82,8 +82,8 @@ UserModel::UserModel(QObject *parent)
+         m_userList.append(user);
+     }
+ 
+-    std::ranges::sort(m_userList, [](User *lhs, User *) {
+-        return lhs->loggedIn();
++    std::ranges::stable_partition(m_userList, [](User *u) {
++        return u->loggedIn();
+     });
+ 
+     connect(this, &QAbstractItemModel::rowsInserted, this, &UserModel::moreThanOneAdminUserChanged);
+-- 
+GitLab
+

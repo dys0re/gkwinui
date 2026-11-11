@@ -1,0 +1,60 @@
+From a4e153b3451239e0efb563ecbae84e9cfec14b37 Mon Sep 17 00:00:00 2001
+From: Nate Graham <nate@kde.org>
+Date: Fri, 20 Jun 2025 08:38:03 -0600
+Subject: [PATCH] kcms/feedback: remove little hover icons
+
+These icons have an unclear purpose since they have no text, and the
+same icons are not repeated elsewhere in the KCM's UI to provide some
+clue as to their meaning or purpose. They only appear on hover and
+can't be accessed on touch at all; let's just remove them to prevent
+user confusion.
+
+The backend code providing icons in the model is preserved in case we
+ever want to do something else with icons in the future.
+
+BUG: 505761
+FIXED-IN: 6.4.1
+
+
+(cherry picked from commit 3c277146c4ec44cde54988dcd6c70b17442ad5e9)
+
+Co-authored-by: Nate Graham <nate@kde.org>
+---
+ kcms/feedback/ui/main.qml | 21 ---------------------
+ 1 file changed, 21 deletions(-)
+
+diff --git a/kcms/feedback/ui/main.qml b/kcms/feedback/ui/main.qml
+index bb565169ea..839b8ed3ad 100644
+--- a/kcms/feedback/ui/main.qml
++++ b/kcms/feedback/ui/main.qml
+@@ -145,27 +145,6 @@ SimpleKCM {
+                         text: "· " + modelData.description
+                         textFormat: Text.PlainText
+                         Layout.fillWidth: true
+-
+-                        MouseArea {
+-                            anchors.fill: parent
+-                            hoverEnabled: true
+-                            QQC2.ToolTip {
+-                                width: iconsLayout.implicitWidth + Kirigami.Units.largeSpacing * 2
+-                                height: iconsLayout.implicitHeight + Kirigami.Units.smallSpacing * 2
+-                                visible: parent.containsMouse
+-                                RowLayout {
+-                                    id: iconsLayout
+-                                    Repeater {
+-                                        model: modelData.icons
+-                                        delegate: Kirigami.Icon {
+-                                            implicitHeight: Kirigami.Units.iconSizes.medium
+-                                            implicitWidth: Kirigami.Units.iconSizes.medium
+-                                            source: modelData
+-                                        }
+-                                    }
+-                                }
+-                            }
+-                        }
+                     }
+                 }
+             }
+-- 
+GitLab
+

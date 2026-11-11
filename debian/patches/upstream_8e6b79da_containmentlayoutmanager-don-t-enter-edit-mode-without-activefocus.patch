@@ -1,0 +1,51 @@
+From 8e6b79da5e58622fd27999c85168a616871324b7 Mon Sep 17 00:00:00 2001
+From: Christoph Wolk <cwo.kde@posteo.net>
+Date: Tue, 3 Jun 2025 21:04:21 +0000
+Subject: [PATCH] containmentlayoutmanager: don't enter edit mode without
+ activefocus
+
+ItemContainer enters edit mode on pressAndHold for desktop widgets not
+set to immutable. This causes a problem with menus that open on press -
+the container will not receive further mouse events that now go to the
+menu, so it still considers itself pressed and unmoved the whole time,
+and goes into edit mode after a while, exiting the menu. This makes
+on-press menus in desktop widgets borderline unusable, and even if the
+user manages to be quick enough to activate the desired entry during the
+pressAndHold duration, it'll still enter edit mode unless the user also
+does a full click on the applet afterward.
+
+We can circumvent this particular case relatively easily by listening to
+the container's activefocus changes - the popup opening does not cause
+a focusOut event, but it does take activeFocus away from the container,
+so if we stop the timer in that case, it works out as it should.
+
+CCBUG: 416909
+
+
+(cherry picked from commit 3d9dd7fe1a664b6b4f20523d6c4425eb57dc6b4c)
+
+Co-authored-by: Christoph Wolk <cwo.kde@posteo.net>
+---
+ components/containmentlayoutmanager/itemcontainer.cpp | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/components/containmentlayoutmanager/itemcontainer.cpp b/components/containmentlayoutmanager/itemcontainer.cpp
+index b241f4814b..047c606c70 100644
+--- a/components/containmentlayoutmanager/itemcontainer.cpp
++++ b/components/containmentlayoutmanager/itemcontainer.cpp
+@@ -38,6 +38,12 @@ ItemContainer::ItemContainer(QQuickItem *parent)
+         setLayout(qobject_cast<AppletsLayout *>(parentItem()));
+     });
+ 
++    connect(this, &ItemContainer::activeFocusChanged, this, [this]() {
++        if (!hasActiveFocus()) { // don't start edit mode if press caused a popup
++            m_editModeTimer->stop();
++        }
++    });
++
+     connect(m_editModeTimer, &QTimer::timeout, this, [this]() {
+         setEditMode(true);
+     });
+-- 
+GitLab
+

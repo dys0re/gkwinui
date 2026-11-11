@@ -1,0 +1,32 @@
+From 2c27c9dbd793ec0eaf5588fdc9205fa408ecc1fb Mon Sep 17 00:00:00 2001
+From: Christoph Wolk <cwo.kde@posteo.net>
+Date: Thu, 8 May 2025 15:27:47 +0200
+Subject: [PATCH] applets/notifications: don't allow horizontal scrolling
+
+Notification bodies have their width constrained by the notification and
+the horizontal scrollbar forced off, but they can still be scrolled with
+a horizontal wheel, touchpad, or similiar. This is surprising and
+pointless.
+
+Instead explicitly set the contentWidth, which is otherwise ultimately
+based on the underlying TextEdit (and that's the width it would have on
+a single line without wrapping).
+---
+ .../package/contents/ui/delegates/DelegatePopup.qml              | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/applets/notifications/package/contents/ui/delegates/DelegatePopup.qml b/applets/notifications/package/contents/ui/delegates/DelegatePopup.qml
+index 21f2ef2e40..f19f21a415 100644
+--- a/applets/notifications/package/contents/ui/delegates/DelegatePopup.qml
++++ b/applets/notifications/package/contents/ui/delegates/DelegatePopup.qml
+@@ -137,6 +137,7 @@ BaseDelegate {
+         PlasmaComponents3.ScrollView {
+             id: scroll
+             anchors.fill: parent
++            contentWidth: bodyLabel.width
+ 
+             // This avoids a binding loop
+             PlasmaComponents3.ScrollBar.vertical.visible: modelInterface.maximumLineCount > 0 && bodyLabel.implicitHeight > parent.Layout.maximumHeight
+-- 
+GitLab
+

@@ -1,0 +1,46 @@
+From d4df9b5f8c388d24e167c5ee8f6be061c1c8de81 Mon Sep 17 00:00:00 2001
+From: Christoph Wolk <cwo.kde@posteo.net>
+Date: Tue, 25 Mar 2025 10:46:10 +0100
+Subject: [PATCH] applets/systemmonitor: handle null faceController
+
+When initially adding a systemmonitor widget to a panel, faceController
+can still be null, causing several TypeErrors.
+
+Instead, use optional chaining and default values to prevent these
+errors until the faceController is loaded.
+---
+ .../systemmonitor/package/contents/ui/main.qml            | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/applets/systemmonitor/systemmonitor/package/contents/ui/main.qml b/applets/systemmonitor/systemmonitor/package/contents/ui/main.qml
+index f41f11d3ddc..6d4480cae8a 100644
+--- a/applets/systemmonitor/systemmonitor/package/contents/ui/main.qml
++++ b/applets/systemmonitor/systemmonitor/package/contents/ui/main.qml
+@@ -59,7 +59,7 @@ PlasmoidItem {
+ 
+     preferredRepresentation: Plasmoid.formFactor === PlasmaCore.Types.Planar ? fullRepresentation : null
+ 
+-    Plasmoid.title: Plasmoid.faceController.title || i18n("System Monitor")
++    Plasmoid.title: Plasmoid.faceController?.title || i18n("System Monitor")
+     toolTipSubText: totalSensor.sensorId ? i18nc("Sensor name: value", "%1: %2", totalSensor.name, totalSensor.formattedValue) : ""
+ 
+     compactRepresentation: CompactRepresentation {
+@@ -67,12 +67,12 @@ PlasmoidItem {
+     fullRepresentation: FullRepresentation {
+     }
+ 
+-    Plasmoid.configurationRequired: Plasmoid.faceController.highPrioritySensorIds.length == 0 && Plasmoid.faceController.lowPrioritySensorIds.length == 0 && Plasmoid.faceController.totalSensors.length == 0
++    Plasmoid.configurationRequired: (Plasmoid.faceController ?? false) && Plasmoid.faceController.highPrioritySensorIds.length == 0 && Plasmoid.faceController.lowPrioritySensorIds.length == 0 && Plasmoid.faceController.totalSensors.length == 0
+ 
+     Sensors.Sensor {
+         id: totalSensor
+-        sensorId: Plasmoid.faceController.totalSensors[0] || ""
+-        updateRateLimit: Plasmoid.faceController.updateRateLimit
++        sensorId: Plasmoid.faceController?.totalSensors[0] || ""
++        updateRateLimit: Plasmoid.faceController?.updateRateLimit
+     }
+ 
+     MouseArea {
+-- 
+GitLab
+

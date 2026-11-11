@@ -1,0 +1,44 @@
+From cf206f9d6714ad6d3aff4d2bdd600ab00f8aee0c Mon Sep 17 00:00:00 2001
+From: Nate Graham <nate@kde.org>
+Date: Sat, 29 Mar 2025 15:35:36 -0600
+Subject: [PATCH] applets/notifications: never use scientific notation for
+ large numbers
+
+Normal people don't know how to read it.
+
+BUG: 422166
+FIXED-IN: 6.4.0
+---
+ .../package/contents/ui/components/JobDetails.qml        | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/applets/notifications/package/contents/ui/components/JobDetails.qml b/applets/notifications/package/contents/ui/components/JobDetails.qml
+index 982a1ce34c7..55470d52bd0 100644
+--- a/applets/notifications/package/contents/ui/components/JobDetails.qml
++++ b/applets/notifications/package/contents/ui/components/JobDetails.qml
+@@ -95,7 +95,10 @@ GridLayout {
+             Layout.row: 2 + index
+             Layout.fillWidth: true
+             text: {
+-                var processed = modelInterface.jobDetails["processed" + modelData];
++                let rawProcessed = modelInterface.jobDetails["processed" + modelData];
++                // Format number to not display as exponential
++                processed = rawProcessed.toLocaleString(Qt.locale(), 'f', 0);
++
+                 var total = modelInterface.jobDetails["total" + modelData];
+ 
+                 if (processed > 0 || total > 1) {
+@@ -103,8 +106,8 @@ GridLayout {
+                         switch(modelData) {
+                         case "Bytes":
+                             return i18ndc("plasma_applet_org.kde.plasma.notifications", "How many bytes have been copied", "%2 of %1",
+-                                KCoreAddons.Format.formatByteSize(total),
+-                                KCoreAddons.Format.formatByteSize(processed))
++                                KCoreAddons.Format.formatByteSize(total).toLocaleString(Qt.locale(), 'f', 0),
++                                KCoreAddons.Format.formatByteSize(processed)).toLocaleString(Qt.locale(), 'f', 0)
+                         case "Files":
+                             return i18ndcp("plasma_applet_org.kde.plasma.notifications", "How many files have been copied", "%2 of %1 file", "%2 of %1 files",
+                                           total, processed);
+-- 
+GitLab
+

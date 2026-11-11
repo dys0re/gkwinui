@@ -1,0 +1,43 @@
+From 142caad00345dd4d6493a328a0d25fb2fb8e264a Mon Sep 17 00:00:00 2001
+From: Christoph Wolk <cwo.kde@posteo.net>
+Date: Sat, 10 May 2025 19:10:30 +0200
+Subject: [PATCH] applets/notification: fix fullRepresentation-only widgets
+
+The fullRepresentation has a little efficiency trick: it unloads the
+model while it is not expanded, so the ListView does not need to be
+updated while it is not visible. In general this is fine, but it
+interacts very badly with attempts to put the fullRepresentation
+directly on the desktop (or in a very large panel) and the auto-closing
+functionality of the notification applet. When the notification history
+ever becomes empty, it tries to close the fullRepresentation by setting
+expanded to false, which by itself does not do any harm either (the
+fullRepresentation stays a fullRepresentation), but it does unload the
+model, so the history never updates again (unless the user manually
+resizes it to become too small for the fullRepresentation then back
+again, which resets it to its proper expanded state).
+
+Instead, we modify closePlasmoid() to only set expanded to false if the
+widget is below either switchWidth or switchHeight.
+
+BUG: 503815
+FIXED-IN: 6.4.0
+---
+ applets/notifications/package/contents/ui/main.qml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/applets/notifications/package/contents/ui/main.qml b/applets/notifications/package/contents/ui/main.qml
+index 3ed3cfa6f22..c96afa0558d 100644
+--- a/applets/notifications/package/contents/ui/main.qml
++++ b/applets/notifications/package/contents/ui/main.qml
+@@ -211,7 +211,7 @@ PlasmoidItem {
+     }
+ 
+     function closePlasmoid() {
+-        if (root.hideOnWindowDeactivate) {
++        if (root.hideOnWindowDeactivate && !(root.width > root.switchWidth && root.height > root.switchHeight)) {
+             root.expanded = false;
+         }
+     }
+-- 
+GitLab
+

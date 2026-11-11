@@ -1,0 +1,26 @@
+From b2e80af58df6e58659586110ad8b84706600cc85 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Niccol=C3=B2=20Venerandi?= <niccolo@venerandi.com>
+Date: Tue, 17 Jun 2025 09:39:05 +0200
+Subject: [PATCH] Only resize width to fit date elements if they are visible
+
+BUG:505614
+---
+ applets/digital-clock/package/contents/ui/DigitalClock.qml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/applets/digital-clock/package/contents/ui/DigitalClock.qml b/applets/digital-clock/package/contents/ui/DigitalClock.qml
+index 602f6724da..1491764931 100644
+--- a/applets/digital-clock/package/contents/ui/DigitalClock.qml
++++ b/applets/digital-clock/package/contents/ui/DigitalClock.qml
+@@ -249,7 +249,7 @@ MouseArea {
+                 target: contentItem
+ 
+                 height: sizehelper.height
+-                width: dateLabel.width + labelsGrid.width + timeMetrics.advanceWidth(" ") * 2 + separator.width
++                width: (dateLabel.visible ? dateLabel.width + timeMetrics.advanceWidth(" ") * 2 + separator.width : 0) + labelsGrid.width
+             }
+ 
+             AnchorChanges {
+-- 
+GitLab
+

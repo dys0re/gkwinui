@@ -1,0 +1,53 @@
+From ab55c53e37814da5aadf9bf29dd5cae7a783ef6e Mon Sep 17 00:00:00 2001
+From: Christoph Wolk <cwo.kde@posteo.net>
+Date: Thu, 5 Jun 2025 18:33:29 +0000
+Subject: [PATCH] applets/kicker: fix filenames containing # in history
+
+Kicker takes the resource name as provided by PlasmaActivities.Stats and
+interprets it as an URL, setting the 'file' url scheme if necessary.
+This fails when the filenames contain a '#' character, as QUrl will
+interpret them as url fragments if not percent-encoded (which they are
+not for local files, but are for remote urls). This makes display and
+opening of such files fail in both Kicker and Kickoff.
+
+Instead, we test whether it's an absolute path (the local history
+entries are) and if so, use QUrl.fromLocalFile to get the correct url.
+This is also what PlasmaActivities.Stats does in ResultSet (which is
+what the Task Manager uses, so everything works there already, but we
+want a real model here).
+
+BUG: 419449
+BUG: 437960
+FIXED-IN: 6.4.0
+
+
+(cherry picked from commit c6c0a68416b5042032853a6f673bddbe475567b7)
+
+Co-authored-by: Christoph Wolk <cwo.kde@posteo.net>
+---
+ applets/kicker/recentusagemodel.cpp | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/applets/kicker/recentusagemodel.cpp b/applets/kicker/recentusagemodel.cpp
+index c0c7466e82..4546269577 100644
+--- a/applets/kicker/plugin/recentusagemodel.cpp
++++ b/applets/kicker/plugin/recentusagemodel.cpp
+@@ -273,10 +273,12 @@ QModelIndex RecentUsageModel::findPlaceForKFileItem(const KFileItem &fileItem) c
+ 
+ QVariant RecentUsageModel::docData(const QString &resource, int role, const QString &mimeType) const
+ {
+-    QUrl url(resource);
++    QUrl url;
+ 
+-    if (url.scheme().isEmpty()) {
+-        url.setScheme(QStringLiteral("file"));
++    if (QDir::isAbsolutePath(resource)) {
++        url = QUrl::fromLocalFile(resource);
++    } else {
++        url = QUrl(resource);
+     }
+ 
+     auto getFileItem = [=]() {
+-- 
+GitLab
+

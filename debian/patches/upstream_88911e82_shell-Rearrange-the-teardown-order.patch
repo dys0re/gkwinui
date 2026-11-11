@@ -1,0 +1,89 @@
+From 88911e8246c0136fa07945304fc9ba7840b90f8f Mon Sep 17 00:00:00 2001
+From: Vlad Zahorodnii <vlad.zahorodnii@kde.org>
+Date: Wed, 28 May 2025 13:36:20 +0000
+Subject: [PATCH] shell: Rearrange the teardown order
+
+At the moment, the ShellCorona is destroyed after the QApplication object.
+Destroying something after the application object can lead to
+unexpected results because most of the code is written with an assumption
+that the app object and the associated objects, e.g. the qpa, are still
+valid when the cleanup code runs.
+
+This change puts the ShellCorona on the stack so the destruction order
+looks as follows:
+
+- destroy ShellCorona
+- destroy QApplication
+
+CCBUG: 487660
+
+
+(cherry picked from commit e2326d7f9e752eb18411ef4c0bcd53b8f34e02c6)
+
+Co-authored-by: Vlad Zahorodnii <vlad.zahorodnii@kde.org>
+---
+ shell/main.cpp | 17 +++++++----------
+ 1 file changed, 7 insertions(+), 10 deletions(-)
+
+diff --git a/shell/main.cpp b/shell/main.cpp
+index ae583ce127..a182d16e2f 100644
+--- a/shell/main.cpp
++++ b/shell/main.cpp
+@@ -92,7 +92,7 @@ int main(int argc, char *argv[])
+ 
+     bool replace = false;
+ 
+-    ShellCorona *corona = nullptr;
++    ShellCorona corona;
+     {
+         QCommandLineParser cliOptions;
+ 
+@@ -132,23 +132,20 @@ int main(int argc, char *argv[])
+         QObject::connect(&app, &QGuiApplication::commitDataRequest, disableSessionManagement);
+         QObject::connect(&app, &QGuiApplication::saveStateRequest, disableSessionManagement);
+ 
+-        corona = new ShellCorona(&app);
+-        corona->setShell(cliOptions.value(shellPluginOption));
+-        if (!corona->kPackage().isValid()) {
+-            qCritical() << "starting invalid corona" << corona->shell();
++        corona.setShell(cliOptions.value(shellPluginOption));
++        if (!corona.kPackage().isValid()) {
++            qCritical() << "starting invalid corona" << corona.shell();
+             return 1;
+         }
+ 
+ #ifdef WITH_KUSERFEEDBACKCORE
+-        auto userFeedback = new UserFeedback(corona, &app);
++        auto userFeedback = new UserFeedback(&corona, &corona);
+         if (cliOptions.isSet(feedbackOption)) {
+             QTextStream(stdout) << userFeedback->describeDataSources();
+             return 0;
+         }
+ #endif
+ 
+-        QObject::connect(QCoreApplication::instance(), &QCoreApplication::aboutToQuit, corona, &QObject::deleteLater);
+-
+         if (!cliOptions.isSet(noRespawnOption)) {
+             KCrash::setFlags(KCrash::AutoRestart);
+         }
+@@ -156,7 +153,7 @@ int main(int argc, char *argv[])
+         // Tells libnotificationmanager that we're the only true application that may own notification and job progress services
+         qApp->setProperty("_plasma_dbus_master", true);
+ 
+-        QObject::connect(corona, &ShellCorona::glInitializationFailed, &app, [&app]() {
++        QObject::connect(&corona, &ShellCorona::glInitializationFailed, &app, [&app]() {
+             // scene graphs errors come from a thread
+             // even though we process them in the main thread, app.exit could still process these events
+             static bool s_multipleInvokations = false;
+@@ -185,7 +182,7 @@ int main(int argc, char *argv[])
+ 
+     KDBusService service(KDBusService::Unique | KDBusService::StartupOption(replace ? KDBusService::Replace : 0));
+ 
+-    corona->init();
++    corona.init();
+     SoftwareRendererNotifier::notifyIfRelevant();
+ 
+     return app.exec();
+-- 
+GitLab
+

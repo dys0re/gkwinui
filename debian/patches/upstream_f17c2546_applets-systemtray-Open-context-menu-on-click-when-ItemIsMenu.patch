@@ -1,0 +1,33 @@
+From f17c2546f6c67e5636a4ccab2519ea50c2ed2bce Mon Sep 17 00:00:00 2001
+From: Kai Uwe Broulik <kde@privat.broulik.de>
+Date: Sat, 22 Mar 2025 18:22:35 +0100
+Subject: [PATCH] applets/systemtray: Open context menu on click when
+ ItemIsMenu
+
+As per StatusNotifierItem spec:
+
+> The item only support the context menu, the visualization should
+prefer showing the menu or sending ContextMenu() instead of Activate()
+---
+ .../package/contents/ui/items/StatusNotifierItem.qml         | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/applets/systemtray/package/contents/ui/items/StatusNotifierItem.qml b/applets/systemtray/package/contents/ui/items/StatusNotifierItem.qml
+index bd153d97731..6b683077a1b 100644
+--- a/applets/systemtray/package/contents/ui/items/StatusNotifierItem.qml
++++ b/applets/systemtray/package/contents/ui/items/StatusNotifierItem.qml
+@@ -42,6 +42,11 @@ AbstractItem {
+     }
+ 
+     onActivated: pos => {
++        if (model.ItemIsMenu) {
++            openContextMenu(pos);
++            return;
++        }
++
+         const service = model.Service;
+         const operation = service.operationDescription("Activate");
+         operation.x = pos.x; //mouseX
+-- 
+GitLab
+

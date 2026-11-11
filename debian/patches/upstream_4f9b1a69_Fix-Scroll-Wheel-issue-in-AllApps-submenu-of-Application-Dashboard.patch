@@ -1,0 +1,36 @@
+From 4f9b1a69c8105b0c59e667e6a242f821b51208b4 Mon Sep 17 00:00:00 2001
+From: Tomislav Pap <bad63r@gmail.com>
+Date: Mon, 24 Mar 2025 23:23:07 +0000
+Subject: [PATCH] Fix Scroll Wheel issue in AllApps submenu of Application
+ Dashboard
+
+Scroll with mouse wheel was problematic in AllApps subsection. It worked
+partially, abruptly stopping when hovering over app icons, or just
+during mouse wheel scrolling.
+
+The problem is that QQuick WheelInterceptor::findwheelArea() never entered
+into its if statement because there are 3 children elements of QML parent,
+and their z axis values are 1, 0, 0 respectfully.
+
+BUG: 486481
+FIXED-IN: 6.4.0
+---
+ applets/kicker/plugin/wheelinterceptor.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/applets/kicker/plugin/wheelinterceptor.cpp b/applets/kicker/plugin/wheelinterceptor.cpp
+index a79130bcc18..1e797857183 100644
+--- a/applets/kicker/plugin/wheelinterceptor.cpp
++++ b/applets/kicker/plugin/wheelinterceptor.cpp
+@@ -51,7 +51,7 @@ QQuickItem *WheelInterceptor::findWheelArea(QQuickItem *parent) const
+         // HACK: ScrollView adds the WheelArea below its flickableItem with
+         // z==-1. This is reasonable non-risky considering we know about
+         // everything else in there, and worst case we break the mouse wheel.
+-        if (child->z() == -1) {
++        if (child->z() >= -1) {
+             return child;
+         }
+     }
+-- 
+GitLab
+

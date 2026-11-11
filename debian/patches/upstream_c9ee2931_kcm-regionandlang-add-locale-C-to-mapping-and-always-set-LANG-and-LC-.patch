@@ -1,0 +1,186 @@
+From c9ee2931f9f13f0f1f3c03ccd6040648422b0c0a Mon Sep 17 00:00:00 2001
+From: Han Young <hanyoung@protonmail.com>
+Date: Sat, 22 Feb 2025 23:13:19 +0800
+Subject: [PATCH] kcm_regionandlang: add locale C to mapping and always set
+ LANG and LC_*
+
+BUG: 500432
+
+Add locale C to glibc mappings so that locale C is actually saved to config file
+
+Also set LC_* whenever LANG is set, this ensure LC_* are always up to date. In previous logic, LC_* can become out of sync if user change LANG to something else than changed it back.
+---
+ kcms/region_language/kcmregionandlang.cpp     |  8 ++-----
+ kcms/region_language/languagelistmodel.cpp    |  2 +-
+ kcms/region_language/optionsmodel.cpp         | 24 +++----------------
+ .../region_language/regionandlangsettings.cpp | 24 ++++++++++++-------
+ kcms/region_language/regionandlangsettings.h  |  2 +-
+ .../regionandlangsettingsbase.kcfg            |  4 ----
+ 6 files changed, 23 insertions(+), 41 deletions(-)
+
+diff --git a/kcms/region_language/kcmregionandlang.cpp b/kcms/region_language/kcmregionandlang.cpp
+index 943ac841d0..9dc04162a9 100644
+--- a/kcms/region_language/kcmregionandlang.cpp
++++ b/kcms/region_language/kcmregionandlang.cpp
+@@ -137,10 +137,6 @@ QString KCMRegionAndLang::localeFileDirPath()
+ 
+ void KCMRegionAndLang::save()
+ {
+-    if (!settings()->isDefaultSetting(SettingType::Lang)) {
+-        settings()->setLC_Vars(settings()->lang());
+-    }
+-
+     if (settings()->isSaveNeeded()) {
+         // assemble full locales in use
+         QStringList locales;
+@@ -264,7 +260,7 @@ void KCMRegionAndLang::unset(SettingType setting) const
+         return;
+     case SettingType::Lang:
+         entry = "LANG";
+-        settings()->setLang(settings()->defaultLangValue());
++        settings()->setLang(QString());
+         break;
+     case SettingType::Numeric:
+         entry = "LC_NUMERIC";
+@@ -351,7 +347,7 @@ QString KCMRegionAndLang::toUTF8Locale(const QString &locale)
+ #ifdef GLIBC_LOCALE
+ std::unordered_map<QString, QString> KCMRegionAndLang::constructGlibcLocaleMap()
+ {
+-    std::unordered_map<QString, QString> localeMap;
++    std::unordered_map<QString, QString> localeMap = {{QStringLiteral("C"), QStringLiteral("C")}};
+ 
+     QDir glibcLocaleDir(localeFileDirPath());
+     auto availableLocales = glibcLocaleDir.entryList(QDir::Files);
+diff --git a/kcms/region_language/languagelistmodel.cpp b/kcms/region_language/languagelistmodel.cpp
+index 5dd283cab7..894adabf6a 100644
+--- a/kcms/region_language/languagelistmodel.cpp
++++ b/kcms/region_language/languagelistmodel.cpp
+@@ -385,7 +385,7 @@ void SelectedLanguageModel::saveLanguages()
+         return;
+     }
+     if (m_selectedLanguages.empty()) {
+-        m_settings->setLang(m_settings->defaultLangValue());
++        m_settings->setLang(m_settings->langWithFallback());
+         m_settings->config()->group(QStringLiteral("Formats")).deleteEntry("lang");
+         m_settings->config()->group(QStringLiteral("Translations")).deleteEntry("language");
+     } else {
+diff --git a/kcms/region_language/optionsmodel.cpp b/kcms/region_language/optionsmodel.cpp
+index 9f2404fe90..50dd03cc5a 100644
+--- a/kcms/region_language/optionsmodel.cpp
++++ b/kcms/region_language/optionsmodel.cpp
+@@ -126,25 +126,7 @@ QVariant OptionsModel::data(const QModelIndex &index, int role) const
+             Q_ASSERT(false); // shouldn't happen
+             return {};
+         case Lang:
+-            if (m_settings->defaultLangValue().isEmpty() && m_settings->isDefaultSetting(SettingType::Lang)) {
+-                // no Lang configured, no $LANG in env
+-                return i18nc("@info:title, the current setting is system default", "System Default");
+-            } else if (!m_settings->lang().isEmpty() && m_settings->lang() != m_settings->defaultLangValue()) {
+-                // Lang configured and not empty
+-                return getNativeName(m_settings->lang());
+-            } else {
+-                // Lang configured but empty, try to read from $LANGUAGE first.
+-                if (const QString languages = m_settings->defaultLanguageValue(); !languages.isEmpty()) {
+-                    // If the first language is invalid, just fall through to $LANG
+-                    const QStringList languageList = languages.split(QLatin1Char(':'));
+-                    if (const QString firstLanguage = getNativeName(languageList[0]); !firstLanguage.isEmpty()) {
+-                        return firstLanguage;
+-                    }
+-                }
+-
+-                // Lang configured but empty, try to read from $LANG, shouldn't happen on a valid config file
+-                return getNativeName(m_settings->defaultLangValue());
+-            }
++            return getNativeName(m_settings->langWithFallback());
+         case Numeric:
+             if (m_settings->isDefaultSetting(SettingType::Numeric)) {
+                 return getNativeName(m_settings->numeric());
+@@ -369,8 +351,8 @@ QString OptionsModel::implicitFormatExampleMsg() const
+ 
+     if (!m_settings->lang().isEmpty()) {
+         locale = getNativeName(m_settings->lang());
+-    } else if (!m_settings->defaultLangValue().isEmpty()) {
+-        locale = getNativeName(m_settings->defaultLangValue());
++    } else if (!m_settings->langWithFallback().isEmpty()) {
++        locale = getNativeName(m_settings->langWithFallback());
+     } else {
+         locale = i18nc("@info:title, the current setting is system default", "System Default");
+     }
+diff --git a/kcms/region_language/regionandlangsettings.cpp b/kcms/region_language/regionandlangsettings.cpp
+index 799500b848..8aa9ed8dda 100644
+--- a/kcms/region_language/regionandlangsettings.cpp
++++ b/kcms/region_language/regionandlangsettings.cpp
+@@ -9,11 +9,19 @@
+ 
+ using KCM_RegionAndLang::SettingType;
+ 
++RegionAndLangSettings::RegionAndLangSettings(QObject *parent)
++    : RegionAndLangSettingsBase(parent)
++{
++    connect(this, &RegionAndLangSettings::langChanged, this, [this] {
++        this->setLC_Vars(this->lang());
++    });
++}
++
+ bool RegionAndLangSettings::isDefaultSetting(SettingType setting) const
+ {
+     switch (setting) {
+     case SettingType::Lang:
+-        return lang() == defaultLangValue();
++        return lang().isEmpty();
+     case SettingType::Language:
+         return language() == defaultLanguageValue();
+     case SettingType::Numeric:
+@@ -43,14 +51,14 @@ bool RegionAndLangSettings::isDefaultSetting(SettingType setting) const
+ QString RegionAndLangSettings::langWithFallback() const
+ {
+     QString lang = RegionAndLangSettings::lang();
+-    if (!(isDefaultSetting(SettingType::Lang) && lang.isEmpty())) {
+-        if (QString envLang = qEnvironmentVariable("LANG"); !envLang.isEmpty()) {
+-            envLang.replace(QStringLiteral("utf8"), QStringLiteral("UTF-8"));
+-            return envLang;
+-        }
+-        return QLocale::system().name();
++    if (!lang.isEmpty()) {
++        return lang;
++    }
++    if (QString envLang = qEnvironmentVariable("LANG"); !envLang.isEmpty()) {
++        envLang.replace(QStringLiteral("utf8"), QStringLiteral("UTF-8"));
++        return envLang;
+     }
+-    return lang;
++    return QLocale::system().name();
+ }
+ 
+ QString RegionAndLangSettings::LC_LocaleWithLang(SettingType setting) const
+diff --git a/kcms/region_language/regionandlangsettings.h b/kcms/region_language/regionandlangsettings.h
+index aeb570e148..e9f861dff8 100644
+--- a/kcms/region_language/regionandlangsettings.h
++++ b/kcms/region_language/regionandlangsettings.h
+@@ -14,7 +14,7 @@ class RegionAndLangSettings : public RegionAndLangSettingsBase
+ {
+     Q_OBJECT
+ public:
+-    using RegionAndLangSettingsBase::RegionAndLangSettingsBase;
++    RegionAndLangSettings(QObject *parent = nullptr);
+     bool isDefaultSetting(KCM_RegionAndLang::SettingType setting) const;
+     QString langWithFallback() const;
+     QString LC_LocaleWithLang(KCM_RegionAndLang::SettingType setting) const;
+diff --git a/kcms/region_language/regionandlangsettingsbase.kcfg b/kcms/region_language/regionandlangsettingsbase.kcfg
+index 17ac78291a..b7e32c7aed 100644
+--- a/kcms/region_language/regionandlangsettingsbase.kcfg
++++ b/kcms/region_language/regionandlangsettingsbase.kcfg
+@@ -9,10 +9,6 @@
+   <kcfgfile name="plasma-localerc" />
+   <group name="Formats">
+     <entry key="LANG" name="lang" type="String">
+-        <code>
+-            QString lang = QString::fromLocal8Bit(qgetenv("LANG"));
+-        </code>
+-        <default code="true">lang</default>
+     </entry>
+     <entry key="LC_NUMERIC" name="numeric" type="String">
+         <default code="true">i18n("Inherit Language")</default>
+-- 
+GitLab
+

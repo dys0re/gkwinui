@@ -1,0 +1,385 @@
+Source: plasma-workspace
+Section: kde
+Priority: optional
+Maintainer: Debian Qt/KDE Maintainers <debian-qt-kde@lists.debian.org>
+Uploaders: Aurélien COUDERC <coucouf@debian.org>,
+           Patrick Franz <deltaone@debian.org>,
+Build-Depends: debhelper-compat (= 13),
+               dh-sequence-kf6,
+               dh-sequence-pkgkde-symbolshelper,
+               dh-sequence-sodeps,
+               appmenu-gtk3-module,
+               breeze-dev (>= 4:6.3.4~),
+               cmake (>= 3.16~),
+               extra-cmake-modules (>= 6.10.0~),
+               kded6-dev (>= 6.10.0~),
+               kirigami-addons-dev (>= 1.0.0~),
+               kscreenlocker-dev (>= 6.3.4~),
+               kwayland-dev (>= 4:6.3.4~),
+               kwin-dev (>= 4:6.3.4~),
+               libappstreamqt-dev (>= 1.0.0~),
+               libcanberra-dev,
+               libdbus-1-dev,
+               libdrm-dev,
+               libfontconfig-dev,
+               libice-dev,
+               libicu-dev,
+               libkexiv2qt6-dev,
+               libkf6archive-dev (>= 6.10.0~),
+               libkf6auth-dev (>= 6.10.0~),
+               libkf6baloo-dev (>= 6.2.0~),
+               libkf6coreaddons-dev (>= 6.10.0~),
+               libkf6crash-dev (>= 6.10.0~),
+               libkf6dbusaddons-dev (>= 6.10.0~),
+               libkf6declarative-dev (>= 6.10.0~),
+               libkf6doctools-dev (>= 6.10.0~),
+               libkf6globalaccel-dev (>= 6.10.0~),
+               libkf6guiaddons-dev (>= 6.10.0~),
+               libkf6holidays-dev (>= 6.2.0~),
+               libkf6i18n-dev (>= 6.10.0~),
+               libkf6iconthemes-dev (>= 6.10.0~),
+               libkf6idletime-dev (>= 6.10.0~),
+               libkf6itemmodels-dev (>= 6.10.0~),
+               libkf6kcmutils-dev (>= 6.10.0~),
+               libkf6kio-dev (>= 6.10.0~),
+               libkf6networkmanagerqt-dev (>= 6.10.0~),
+               libkf6newstuff-dev (>= 6.10.0~),
+               libkf6notifications-dev (>= 6.10.0~),
+               libkf6notifyconfig-dev (>= 6.10.0~),
+               libkf6package-dev (>= 6.10.0~),
+               libkf6parts-dev (>= 6.10.0~),
+               libkf6prison-dev (>= 6.10.0~),
+               libkf6runner-dev (>= 6.10.0~),
+               libkf6statusnotifieritem-dev (>= 6.10.0~),
+               libkf6svg-dev (>= 6.10.0~),
+               libkf6texteditor-dev (>= 6.10.0~),
+               libkf6textwidgets-dev (>= 6.10.0~),
+               libkf6unitconversion-dev (>= 6.10.0~),
+               libkf6userfeedback-dev (>= 6.2.0~),
+               libkf6wallet-dev (>= 6.10.0~),
+               libkirigami-dev (>= 6.10.0~),
+               libkpipewire-dev (>= 6.3.4~),
+               libkscreen-dev (>= 4:6.3.4~),
+               libksysguard-dev (>= 4:6.3.4~),
+               liblayershellqtinterface-dev (>= 6.3.4~),
+               libpackagekitqt6-dev,
+               libphonon4qt6-dev (>= 4:4.6.60~),
+               libphonon4qt6experimental-dev,
+               libpipewire-0.3-dev,
+               libplasma-dev (>= 6.3.4~),
+               libplasma5support-dev (>= 4:6.3.4~),
+               libplasmaactivities-dev (>= 6.3.4~),
+               libplasmaactivitiesstats-dev (>= 6.3.4~),
+               libpolkit-qt6-1-dev,
+               libqalculate-dev (>= 2.0~),
+               libquickcharts-dev (>= 6.10.0~),
+               libsm-dev,
+               libsystemd-dev,
+               libudev-dev,
+               libwayland-dev,
+               libx11-dev,
+               libxcb-composite0-dev,
+               libxcb-cursor-dev,
+               libxcb-damage0-dev,
+               libxcb-image0-dev,
+               libxcb-randr0-dev,
+               libxcb-shape0-dev,
+               libxcb-util-dev,
+               libxcb-xfixes0-dev,
+               libxcb1-dev,
+               libxcursor-dev,
+               libxfixes-dev,
+               libxft-dev,
+               libxrender-dev,
+               libxtst-dev,
+               pkgconf,
+               plasma-wayland-protocols (>= 1.6~),
+               qcoro-qt6-dev,
+               qml6-module-org-kde-prison,
+               qt6-5compat-dev (>= 6.7.0~),
+               qt6-base-dev (>= 6.7.0~),
+               qt6-declarative-dev (>= 6.7.0~),
+               qt6-declarative-private-dev,
+               qt6-positioning-dev (>= 6.7.0~),
+               qt6-shadertools-dev (>= 6.7.0~),
+               qt6-svg-dev (>= 6.7.0~),
+               qt6-wayland-dev (>= 6.6.0~),
+               qt6-wayland-private-dev (>= 6.6.0~),
+               systemd-dev,
+               zlib1g-dev,
+Standards-Version: 4.7.2
+Homepage: https://invent.kde.org/plasma/plasma-workspace
+Vcs-Browser: https://salsa.debian.org/qt-kde-team/kde/plasma-workspace
+Vcs-Git: https://salsa.debian.org/qt-kde-team/kde/plasma-workspace.git
+Rules-Requires-Root: no
+
+Package: libbatterycontrol6
+Architecture: any
+Section: libs
+Depends: ${misc:Depends}, ${shlibs:Depends},
+Description: Plasma Workspace battery control library
+ Plasma Workspace is used as the base for Plasma Desktop, Mobile, and
+ Bigscreen. It contains shared KCM configuration screens, applets as
+ well as multiple libraries.
+ .
+ This package contains the battery control library files.
+
+Package: libcolorcorrect6
+Architecture: any
+Section: libs
+Depends: ${misc:Depends}, ${shlibs:Depends},
+Description: Plasma Workspace color correction library
+ Plasma Workspace is used as the base for Plasma Desktop, Mobile, and
+ Bigscreen. It contains shared KCM configuration screens, applets as
+ well as multiple libraries.
+ .
+ This library can be used for configuring the color correction at
+ the compositor level. This includes adjusting screen gamma levels
+ and setting night time color temperature (Night Light).
+ .
+ Currently only controlling KWin in Wayland mode is supported.
+ .
+ This package contains the color correction library files.
+
+Package: libklipper6
+Architecture: any
+Section: libs
+Depends: ${misc:Depends}, ${shlibs:Depends},
+Recommends: plasma-workspace-doc (>= ${source:Version}),
+Description: Plasma Workspaces Klipper library
+ Plasma Workspace is used as the base for Plasma Desktop, Mobile, and
+ Bigscreen. It contains shared KCM configuration screens, applets as
+ well as multiple libraries.
+ .
+ Klipper is the Plasma clipboard utility. It stores clipboard
+ history, and allows you to link clipboard contents to application
+ actions.
+ .
+ This package contains the Klipper library files.
+
+Package: libkmpris6
+Architecture: any
+Section: libs
+Depends: ${misc:Depends}, ${shlibs:Depends},
+Description: Plasma Workspace MPRIS library
+ Plasma Workspace is used as the base for Plasma Desktop, Mobile, and
+ Bigscreen. It contains shared KCM configuration screens, applets as
+ well as multiple libraries.
+ .
+ This library can be used to control Media Player Remote Interfacing
+ Specification-compatible media players.
+ .
+ This package contains Plasma Workspace MPRIS library files.
+
+Package: libkfontinst6
+Architecture: any
+Section: libs
+Depends: ${misc:Depends}, ${shlibs:Depends},
+Description: Plasma Workspace fonts installation library
+ Plasma Workspace is used as the base for Plasma Desktop, Mobile, and
+ Bigscreen. It contains shared KCM configuration screens, applets as
+ well as multiple libraries.
+ .
+ This package contains the fonts installation library files.
+
+Package: libkfontinstui6
+Architecture: any
+Section: libs
+Depends: ${misc:Depends}, ${shlibs:Depends},
+Description: Plasma Workspace UI components for fonts installation
+ Plasma Workspace is used as the base for Plasma Desktop, Mobile, and
+ Bigscreen. It contains shared KCM configuration screens, applets as
+ well as multiple libraries.
+ .
+ This library provides UI components to manage fonts installation
+ used in the fonts installation KCM configuration screen.
+ .
+ This package contains the library files for the fonts installation
+ UI components.
+
+Package: libkworkspace6-6
+Architecture: any
+Section: libs
+Depends: ${misc:Depends}, ${shlibs:Depends},
+Description: Plasma Workspace library
+ Plasma Workspace is used as the base for Plasma Desktop, Mobile, and
+ Bigscreen. It contains shared KCM configuration screens, applets as
+ well as multiple libraries.
+ .
+ This library provides the core features of Plasma Workspace like
+ display, login and session management.
+ .
+ This package contains the main Plasma Workspace library files.
+
+Package: libnotificationmanager1
+Architecture: any
+Section: libs
+Depends: ${misc:Depends}, ${shlibs:Depends},
+Description: Plasma Workspace notification manager library
+ Plasma Workspace is used as the base for Plasma Desktop, Mobile, and
+ Bigscreen. It contains shared KCM configuration screens, applets as
+ well as multiple libraries.
+ .
+ This library is responsible for listing notifications, closing them
+ and interacting with them in Plasma.
+ .
+ This package contains the notification manager library files.
+
+Package: libtaskmanager6
+Architecture: any
+Section: libs
+Depends: ${misc:Depends}, ${shlibs:Depends},
+Description: Plasma Workspace task manager library
+ Plasma Workspace is used as the base for Plasma Desktop, Mobile, and
+ Bigscreen. It contains shared KCM configuration screens, applets as
+ well as multiple libraries.
+ .
+ The task manager library provides various abstractions for listing
+ windows, startup tasks and launcher jobs.
+ .
+ This package contains the task manager library files.
+
+Package: libweather-ion7
+Architecture: any
+Section: libs
+Depends: ${misc:Depends}, ${shlibs:Depends},
+Description: Plasma Workspace weather information library
+ Plasma Workspace is used as the base for Plasma Desktop, Mobile, and
+ Bigscreen. It contains shared KCM configuration screens, applets as
+ well as multiple libraries.
+ .
+ This library provides support for interfacing with online weather
+ information sources.
+ .
+ This package contains the weather information library files.
+
+Package: plasma-workspace
+Architecture: any
+Depends: default-dbus-session-bus | dbus-session-bus,
+         drkonqi (>= 6.2.90~),
+         frameworkintegration6,
+         gdb,
+         iso-codes,
+         kactivitymanagerd (>= 6.2.90~),
+         kded6,
+         kglobalacceld (>= 6.2.90~),
+         kwin-common (>= 4:6.2.90~),
+         kwin-wayland (>= 4:6.2.90~),
+         libkf6config-bin,
+         milou (>= 4:6.2.90~),
+         plasma-desktoptheme,
+         plasma-integration (>= 6.2.90~),
+         plasma-workspace-data (>= ${source:Version}),
+         python3:any,
+         qdbus-qt6,
+         qml6-module-org-kde-activities,
+         qml6-module-org-kde-breeze,
+         qml6-module-org-kde-config,
+         qml6-module-org-kde-coreaddons,
+         qml6-module-org-kde-draganddrop,
+         qml6-module-org-kde-kcmutils,
+         qml6-module-org-kde-kholidays,
+         qml6-module-org-kde-kirigami,
+         qml6-module-org-kde-kirigamiaddons-components,
+         qml6-module-org-kde-kitemmodels,
+         qml6-module-org-kde-kquickcontrols,
+         qml6-module-org-kde-kquickcontrolsaddons,
+         qml6-module-org-kde-ksvg,
+         qml6-module-org-kde-ksysguard,
+         qml6-module-org-kde-kwindowsystem,
+         qml6-module-org-kde-newstuff,
+         qml6-module-org-kde-notifications,
+         qml6-module-org-kde-pipewire,
+         qml6-module-org-kde-plasma-plasma5support,
+         qml6-module-org-kde-prison,
+         qml6-module-org-kde-quickcharts,
+         qml6-module-org-kde-userfeedback,
+         qml6-module-qt5compat-graphicaleffects,
+         qml6-module-qtcore,
+         qml6-module-qtpositioning,
+         qml6-module-qtqml,
+         qml6-module-qtqml-models,
+         qml6-module-qtqml-workerscript,
+         qml6-module-qtquick,
+         qml6-module-qtquick-controls,
+         qml6-module-qtquick-dialogs,
+         qml6-module-qtquick-layouts,
+         qml6-module-qtquick-shapes,
+         qml6-module-qtquick-templates,
+         qml6-module-qtquick-virtualkeyboard,
+         qml6-module-qtquick-window,
+         qt6-wayland,
+         udisks2,
+         x11-utils,
+         x11-xserver-utils,
+         ${misc:Depends},
+         ${shlibs:Depends},
+Provides: notification-daemon, x-session-manager,
+Recommends: kde-cli-tools (>= 4:6.2.90~),
+            kio-extras,
+            kio-fuse,
+            ksystemstats (>= 6.2.90~),
+            plasma-workspace-doc (>= ${source:Version}),
+            powerdevil (>= 4:6.2.90~),
+            systemsettings,
+Breaks: breeze (<< 4:5.23.90~),
+        plasma-desktop (<< 4:5.22.90),
+        plasma-desktop-data (<< 4:5.22.90),
+        plasma-workspace-wayland,
+Replaces: breeze (<< 4:5.23.90~),
+          plasma-desktop (<< 4:5.22.90),
+          plasma-desktop-data (<< 4:5.22.90),
+          plasma-workspace-wayland,
+Description: base for Plasma Desktop, Mobile, and Bigscreen graphical environments
+ Plasma Workspace is used as the base for Plasma Desktop, Mobile, and
+ Bigscreen. It contains shared KCM configuration screens, applets as
+ well as multiple libraries.
+
+Package: plasma-workspace-data
+Architecture: all
+Depends: ${misc:Depends},
+Breaks: breeze (<< 4:5.23.90~),
+        plasma-desktop (<< 4:5.24.0),
+        plasma-desktop-data (<< 4:5.27.0),
+        xdg-desktop-portal-kde (<< 6.2.0~),
+Replaces: breeze (<< 4:5.23.90~),
+          plasma-desktop (<< 4:5.24.0),
+          plasma-desktop-data (<< 4:5.27.0),
+          xdg-desktop-portal-kde (<< 6.2.0~),
+Description: Plasma Workspace data files
+ Plasma Workspace is used as the base for Plasma Desktop, Mobile, and
+ Bigscreen. It contains shared KCM configuration screens, applets as
+ well as multiple libraries.
+ .
+ This contains the data files for Plasma Workspace.
+
+Package: plasma-workspace-doc
+Architecture: all
+Depends: ${misc:Depends},
+Breaks: plasma-workspace-data (<< 4:6.1.90~),
+Replaces: plasma-workspace-data (<< 4:6.1.90~),
+Description: Plasma Workspace documentation
+ Plasma Workspace is used as the base for Plasma Desktop, Mobile, and
+ Bigscreen. It contains shared KCM configuration screens, applets as
+ well as multiple libraries.
+ .
+ This package contains the documentation for Plasma Workspace
+ components and libraries
+
+Package: plasma-workspace-dev
+Architecture: any
+Section: libdevel
+Depends: libkf6itemmodels-dev (>= 6.10.0~),
+         libplasma-dev (>= 6.3.4~),
+         qt6-base-dev (>= 6.7.0~),
+         qt6-declarative-dev (>= 6.7.0~),
+         ${misc:Depends},
+         ${so:Depends},
+Breaks: plasma-desktop-dev (<< 4:5.20),
+Replaces: plasma-desktop-dev (<< 4:5.20),
+Description: Plasma Workspace development files
+ Plasma Workspace is used as the base for Plasma Desktop, Mobile, and
+ Bigscreen. It contains shared KCM configuration screens, applets as
+ well as multiple libraries.
+ .
+ This package contains the development files for Plasma Workspace.

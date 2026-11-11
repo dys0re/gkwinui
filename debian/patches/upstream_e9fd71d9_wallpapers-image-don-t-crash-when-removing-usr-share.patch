@@ -1,0 +1,62 @@
+From e9fd71d9d36171ec161885f4149a2ff0c2c96554 Mon Sep 17 00:00:00 2001
+From: Marco Martin <notmart@gmail.com>
+Date: Wed, 28 May 2025 10:56:49 +0200
+Subject: [PATCH] wallpapers/image: don't crash when removing /usr/share
+
+we delay addSourceModel when the source model is fully loaded,
+but it might take a long time (ie adding /usr/share)
+
+if then we remove it before it's done, we will have either an assert or a crash
+in qconcatenatetablesmodel (depending if Qt asserts are turned on)
+
+we can safely call addsourceModel immediately, so rowsInserted will be
+forwarded as they come in
+
+BUG:503593
+
+
+(cherry picked from commit f584f1beb3aaafe36c328a761b8eea02b46f20c4)
+
+f584f1be wallpapers/image: don't crash when removing /usr/share
+
+Co-authored-by: Marco Martin <notmart@gmail.com>
+---
+ wallpapers/image/plugin/slidemodel.cpp | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/wallpapers/image/plugin/slidemodel.cpp b/wallpapers/image/plugin/slidemodel.cpp
+index 465cfb9b7d..eaf4ce3085 100644
+--- a/wallpapers/image/plugin/slidemodel.cpp
++++ b/wallpapers/image/plugin/slidemodel.cpp
+@@ -88,12 +88,16 @@ QStringList SlideModel::addDirs(const QStringList &dirs)
+             m_models.insert(d, m);
+             added.append(d);
+ 
++            // Add the model immediately unconditionally as we might want to remove it before is loaded,
++            // which would crash if we didn't add it yet. when images are loaded the rowsInserted signals
++            // will be properly forwarded
++            addSourceModel(m);
++
+             if (m->loading().value()) {
+                 connect(m, &ImageProxyModel::loadingChanged, this, &SlideModel::slotSourceModelLoadingChanged);
+             } else {
+                 // In case it loads immediately
+                 ++m_loaded;
+-                addSourceModel(m);
+             }
+         }
+     }
+@@ -161,10 +165,6 @@ QBindable<bool> SlideModel::loading() const
+ 
+ void SlideModel::slotSourceModelLoadingChanged()
+ {
+-    auto m = static_cast<ImageProxyModel *>(sender());
+-    disconnect(m, &ImageProxyModel::loadingChanged, this, nullptr);
+-    addSourceModel(m);
+-
+     if (++m_loaded == m_models.size()) {
+         m_loading = false;
+         Q_EMIT done();
+-- 
+GitLab
+

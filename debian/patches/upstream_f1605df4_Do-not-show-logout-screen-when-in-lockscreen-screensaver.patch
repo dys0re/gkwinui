@@ -1,0 +1,49 @@
+From f1605df4a461874f39e6aef217397caab4d91e47 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Niccol=C3=B2=20Venerandi?= <niccolo@venerandi.com>
+Date: Mon, 2 Jun 2025 11:35:03 +0000
+Subject: [PATCH] Do not show logout screen when in lockscreen / screensaver
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+BUG:504575
+
+
+(cherry picked from commit ba7a8c16b7934fa23d3a44bb38667554e39996b7)
+
+Co-authored-by: Niccolò Venerandi <niccolo@venerandi.com>
+---
+ libkworkspace/sessionmanagement.cpp | 17 ++++++++++++-----
+ 1 file changed, 12 insertions(+), 5 deletions(-)
+
+diff --git a/libkworkspace/sessionmanagement.cpp b/libkworkspace/sessionmanagement.cpp
+index 43a2125917..248147f505 100644
+--- a/libkworkspace/sessionmanagement.cpp
++++ b/libkworkspace/sessionmanagement.cpp
+@@ -148,11 +148,18 @@ void SessionManagement::requestLogoutPrompt()
+         return;
+     }
+ 
+-    // Don't bother to check for whether the user normally wants confirmation or
+-    // not; if this function was invoked, it means they do want to see the logout
+-    // prompt right now
+-    LogoutPromptIface iface;
+-    lockQuitUntilFinished(iface.promptAll());
++    OrgFreedesktopScreenSaverInterface ifaceScreenSaver(QStringLiteral("org.freedesktop.ScreenSaver"),
++                                                        QStringLiteral("/ScreenSaver"),
++                                                        QDBusConnection::sessionBus());
++
++    // Do not show Logoup prompt when in the lockscreen / screensaver
++    if (!ifaceScreenSaver.GetActive()) {
++        // Don't bother to check for whether the user normally wants confirmation or
++        // not; if this function was invoked, it means they do want to see the logout
++        // prompt right now
++        LogoutPromptIface iface;
++        lockQuitUntilFinished(iface.promptAll());
++    }
+ }
+ 
+ void SessionManagement::requestShutdown(ConfirmationMode confirmationMode)
+-- 
+GitLab
+

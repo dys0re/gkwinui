@@ -1,0 +1,34 @@
+# SymbolsHelper-Confirmed: 4:6.1.90 amd64
+libcolorcorrect.so.6 libcolorcorrect6 #MINVER#
+* Build-Depends-Package: plasma-workspace-dev
+ _Z39qml_register_types_org_kde_colorcorrectv@Base 4:6.1.0
+ _ZN12ColorCorrect17CompositorAdaptor11qt_metacallEN11QMetaObject4CallEiPPv@Base 4:6.1.0
+ _ZN12ColorCorrect17CompositorAdaptor11qt_metacastEPKc@Base 4:6.1.0
+ _ZN12ColorCorrect17CompositorAdaptor11stopPreviewEv@Base 4:6.1.0
+ _ZN12ColorCorrect17CompositorAdaptor12errorChangedEv@Base 4:6.1.0
+ _ZN12ColorCorrect17CompositorAdaptor14runningChangedEv@Base 4:6.1.0
+ _ZN12ColorCorrect17CompositorAdaptor16errorTextChangedEv@Base 4:6.1.0
+ _ZN12ColorCorrect17CompositorAdaptor16staticMetaObjectE@Base 4:6.1.0
+ _ZN12ColorCorrect17CompositorAdaptor16updatePropertiesERK4QMapI7QString8QVariantE@Base 4:6.1.0
+ _ZN12ColorCorrect17CompositorAdaptor22sendAutoLocationUpdateEdd@Base 4:6.1.0
+ _ZN12ColorCorrect17CompositorAdaptor23handlePropertiesChangedERK7QStringRK4QMapIS1_8QVariantERK5QListIS1_E@Base 4:6.1.0
+ _ZN12ColorCorrect17CompositorAdaptor7previewEi@Base 4:6.1.0
+ _ZN12ColorCorrect17CompositorAdaptor8setErrorENS0_9ErrorCodeE@Base 4:6.1.0
+ _ZN12ColorCorrect17CompositorAdaptorC1EP7QObject@Base 4:6.1.0
+ _ZN12ColorCorrect17CompositorAdaptorC2EP7QObject@Base 4:6.1.0
+ _ZN12ColorCorrect7SunCalc11qt_metacallEN11QMetaObject4CallEiPPv@Base 4:6.1.0
+ _ZN12ColorCorrect7SunCalc11qt_metacastEPKc@Base 4:6.1.0
+ _ZN12ColorCorrect7SunCalc16staticMetaObjectE@Base 4:6.1.0
+ _ZN12ColorCorrect7SunCalc17getEveningTimingsEdd@Base 4:6.1.0
+ _ZN12ColorCorrect7SunCalc17getMorningTimingsEdd@Base 4:6.1.0
+ _ZNK12ColorCorrect17CompositorAdaptor10metaObjectEv@Base 4:6.1.0
+ _ZNK12ColorCorrect7SunCalc10metaObjectEv@Base 4:6.1.0
+ (optional=templinst)_ZNKSt8_Rb_treeI7QStringSt4pairIKS0_8QVariantESt10_Select1stIS4_ESt4lessIS0_ESaIS4_EE4findERS2_@Base 4:6.1.0
+ (optional=templinst)_ZNSt8_Rb_treeI7QStringSt4pairIKS0_8QVariantESt10_Select1stIS4_ESt4lessIS0_ESaIS4_EE24_M_get_insert_unique_posERS2_@Base 4:6.1.0
+ (optional=templinst|arch=amd64 arm64 loong64 mips64el ppc64el riscv64)_ZNSt8_Rb_treeI7QStringSt4pairIKS0_8QVariantESt10_Select1stIS4_ESt4lessIS0_ESaIS4_EE29_M_get_insert_hint_unique_posESt23_Rb_tree_const_iteratorIS4_ERS2_@Base 4:6.1.4
+ _ZTIN12ColorCorrect17CompositorAdaptorE@Base 4:6.1.0
+ _ZTIN12ColorCorrect7SunCalcE@Base 4:6.1.0
+ _ZTSN12ColorCorrect17CompositorAdaptorE@Base 4:6.1.0
+ _ZTSN12ColorCorrect7SunCalcE@Base 4:6.1.0
+ _ZTVN12ColorCorrect17CompositorAdaptorE@Base 4:6.1.0
+ _ZTVN12ColorCorrect7SunCalcE@Base 4:6.1.0
