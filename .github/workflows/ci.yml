@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-debian-trixie:
+    name: Build Shell & Session (Debian 13 trixie)
+    runs-on: ubuntu-latest
+    container:
+      image: debian:trixie
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 2G
+      CCACHE_COMPILERCHECK: content
+    steps:
+      - name: Install bootstrap tools
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates git ninja-build mold ccache qt6-declarative-dev-tools
+          git config --global --add safe.directory '*'
+
+      - name: Checkout gkwinui
+        uses: actions/checkout@v4
+
+      - name: Restore ccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: gkwinui-trixie-ccache-${{ github.sha }}
+          restore-keys: |
+            gkwinui-trixie-ccache-
+
+      - name: Verify SystemTray QML bytecode compilation (.qmlc)
+        run: |
+          for q in \
+            applets/systemtray/package/contents/ui/CurrentItemHighLight.qml \
+            applets/systemtray/package/contents/ui/ExpandedRepresentation.qml \
+            applets/systemtray/package/contents/ui/PlasmoidPopupsContainer.qml \
+            applets/systemtray/package/contents/ui/items/PlasmoidItem.qml; do
+            /usr/lib/qt6/libexec/qmlcachegen --only-bytecode "$q" -o /tmp/check.qmlc
+          done
+          rm -f /tmp/check.qmlc
+
+      - name: Install Debian 13 Plasma Workspace build-dependencies
+        run: |
+          apt-get build-dep -y --no-install-recommends ./
+
+      - name: Configure & Build gkwinui
+        run: |
+          ccache --zero-stats
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_C_FLAGS_RELWITHDEBINFO="-O2 -g1 -DNDEBUG" \
+            -DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-O2 -g1 -DNDEBUG" \
+            -DCMAKE_INSTALL_PREFIX=/usr \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=mold" \
+            -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=mold" \
+            -DCMAKE_MODULE_LINKER_FLAGS="-fuse-ld=mold" \
+            -DBUILD_TESTING=OFF \
+            -DPLASMA_X11_DEFAULT_SESSION=OFF \
+            -DWITH_X11=ON
+          ninja -C build -j"$(nproc)"
+          ccache --show-stats
+
+      - name: Verify staged binaries & Wayland SHM session routing
+        run: |
+          DESTDIR="$PWD/stage" ninja -C build install
+          test -x "$PWD/stage/usr/bin/plasmashell"
+          test -x "$PWD/stage/usr/bin/startplasma-wayland"
+          test -x "$PWD/stage/usr/bin/lindows-plasma-env"
+          ENV_OUT="$(LINDOWS_FORCE_SW_QML=1 "$PWD/stage/usr/bin/lindows-plasma-env")"
+          echo "$ENV_OUT"
+          echo "$ENV_OUT" | grep -q "^QT_QUICK_BACKEND=software$"
+          echo "$ENV_OUT" | grep -q "^QT_WAYLAND_HARDWARE_INTEGRATION=shm$"
+          echo "$ENV_OUT" | grep -q "^QT_WAYLAND_DISABLE_HW_INTEGRATION=1$"
+          ! echo "$ENV_OUT" | grep -q "QML_DISK_CACHE"
