@@ -24,6 +24,7 @@
 #include <QScreen>
 #include <QUrl>
 #include <QVariant>
+#include <QWindow>
 
 #include <KActionCollection>
 #include <KAuthorized>
@@ -850,6 +851,7 @@ void ShellCorona::load()
     if (!m_waitingPanels.isEmpty()) {
         m_waitingPanelsTimer.start();
     }
+    QTimer::singleShot(300, this, &ShellCorona::prewarmApplets);
 
     if (config()->isImmutable() || !KAuthorized::authorize(QStringLiteral("plasma/plasmashell/unlockedDesktop"))) {
         setImmutability(Plasma::Types::SystemImmutable);
@@ -1503,6 +1505,7 @@ void ShellCorona::addOutput(QScreen *screen)
     if (!m_waitingPanels.isEmpty()) {
         m_waitingPanelsTimer.start();
     }
+    QTimer::singleShot(300, this, &ShellCorona::prewarmApplets);
 
     if (!m_screenReorderInProgress) {
         Q_EMIT availableScreenRectChanged(m_screenPool->idForScreen(screen));
@@ -1619,8 +1622,15 @@ void ShellCorona::createWaitingPanels()
         connect(panel, &PanelView::visibilityModeChanged, this, rectNotify);
         connect(panel, &PanelView::thicknessChanged, this, rectNotify);
         connect(panel, &PanelView::userConfiguringChanged, this, &ShellCorona::panelBeingConfiguredChanged);
+
+        connect(cont, &Plasma::Containment::uiReadyChanged, this, [this](bool ready) {
+            if (ready) {
+                QTimer::singleShot(300, this, &ShellCorona::prewarmApplets);
+            }
+        }, Qt::UniqueConnection);
     }
     m_waitingPanels = stillWaitingPanels;
+    QTimer::singleShot(300, this, &ShellCorona::prewarmApplets);
 }
 
 void ShellCorona::panelContainmentDestroyed(QObject *obj)
@@ -2897,6 +2907,65 @@ void ShellCorona::activateLauncherMenu(const QString &screenName)
 
     if (screenId >= 0) {
         activateLauncherMenu(QString());
+    }
+}
+
+void ShellCorona::prewarmApplets()
+{
+    static bool s_alreadyPrewarmed = false;
+    if (s_alreadyPrewarmed) {
+        return;
+    }
+
+    bool foundLauncher = false;
+    for (auto *cont : containments()) {
+        if (!cont) {
+            continue;
+        }
+        if (cont->containmentType() != Plasma::Containment::Panel
+            && cont->containmentType() != Plasma::Containment::CustomPanel) {
+            continue;
+        }
+        const auto applets = cont->applets();
+        for (auto *applet : applets) {
+            if (!applet) {
+                continue;
+            }
+            const auto provides = applet->pluginMetaData().value(u"X-Plasma-Provides", QStringList());
+            const QString pluginId = applet->pluginMetaData().pluginId();
+            const bool isLauncher = provides.contains(QLatin1String("org.kde.plasma.launchermenu"))
+                || pluginId.contains(QLatin1String("kickoff"), Qt::CaseInsensitive)
+                || pluginId.contains(QLatin1String("kicker"), Qt::CaseInsensitive)
+                || pluginId.contains(QLatin1String("launcher"), Qt::CaseInsensitive);
+
+            if (isLauncher) {
+                if (PlasmaQuick::AppletQuickItem::hasItemForApplet(applet)) {
+                    if (auto *appletItem = PlasmaQuick::AppletQuickItem::itemForApplet(applet)) {
+                        foundLauncher = true;
+                        appletItem->setPreloadFullRepresentation(true);
+                        if (QQuickItem *fullRep = appletItem->fullRepresentationItem()) {
+                            fullRep->polish();
+                            const auto childWindows = appletItem->findChildren<QWindow *>() + fullRep->findChildren<QWindow *>();
+                            for (QWindow *w : childWindows) {
+                                if (w && !w->isVisible()) {
+                                    w->create();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (foundLauncher) {
+        s_alreadyPrewarmed = true;
+    } else {
+        static int s_retryCount = 0;
+        if (s_retryCount < 5) {
+            s_retryCount++;
+            QTimer::singleShot(250, this, &ShellCorona::prewarmApplets);
+        }
     }
 }
 

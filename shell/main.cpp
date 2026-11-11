@@ -24,6 +24,7 @@
 #include <QDir>
 #include <QLoggingCategory>
 #include <QMessageBox>
+#include <QPixmapCache>
 #include <QProcess>
 #include <QQmlDebuggingEnabler>
 #include <QQuickWindow>
@@ -42,6 +43,16 @@ int main(int argc, char *argv[])
 {
     // Auto-route unaccelerated DRM GPUs to Qt Quick Software backend before QGuiApplication
     applySoftwareQuickRoutingEnvironment();
+
+    // Ensure persistent QML disk cache is active
+    if (!qEnvironmentVariableIsSet("QML_DISK_CACHE")) {
+        qputenv("QML_DISK_CACHE", "aot,bytecode");
+    }
+    if (!qEnvironmentVariableIsSet("QML_DISK_CACHE_PATH")) {
+        const QString qmlCacheDir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + QStringLiteral("/qmlcache");
+        QDir().mkpath(qmlCacheDir);
+        qputenv("QML_DISK_CACHE_PATH", QFile::encodeName(qmlCacheDir));
+    }
 
 #if QT_CONFIG(qml_debug)
     if (qEnvironmentVariableIsSet("PLASMA_ENABLE_QML_DEBUG")) {
@@ -66,6 +77,11 @@ int main(int argc, char *argv[])
     // bespoke wayland code disable for now. consider disabling when layer-shell lands
     qunsetenv("QT_WAYLAND_RECONNECT");
     QApplication app(argc, argv);
+
+    // Tune Qt Quick software rendering pixmap cache limits reasonably
+    // Default is 10240 KB (10 MB). 32768 KB (32 MB) caches panel and Kickoff assets/icons
+    // avoiding repetitive SVG rasterization without bloating memory.
+    QPixmapCache::setCacheLimit(32768);
 
     qunsetenv("QT_WAYLAND_DISABLE_FIXED_POSITIONS");
     qputenv("QT_WAYLAND_RECONNECT", "1");

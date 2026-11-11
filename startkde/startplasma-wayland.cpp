@@ -11,11 +11,23 @@
 #include <KConfigGroup>
 #include <QDBusConnection>
 #include <QDBusInterface>
+#include <QDir>
+#include <QStandardPaths>
 #include <signal.h>
 
 int main(int argc, char **argv)
 {
     applySoftwareQuickRoutingEnvironment();
+
+    if (!qEnvironmentVariableIsSet("QML_DISK_CACHE")) {
+        qputenv("QML_DISK_CACHE", "aot,bytecode");
+    }
+    if (!qEnvironmentVariableIsSet("QML_DISK_CACHE_PATH")) {
+        const QString qmlCacheDir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + QStringLiteral("/qmlcache");
+        QDir().mkpath(qmlCacheDir);
+        qputenv("QML_DISK_CACHE_PATH", QFile::encodeName(qmlCacheDir));
+    }
+
     QCoreApplication app(argc, argv);
 
     createConfigDirectory();

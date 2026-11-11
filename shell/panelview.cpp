@@ -1131,6 +1131,10 @@ void PanelView::showEvent(QShowEvent *event)
 
     integrateScreen();
     updateEditModeLabel();
+
+    if (m_corona) {
+        QTimer::singleShot(300, m_corona, &ShellCorona::prewarmApplets);
+    }
 }
 
 void PanelView::setScreenToFollow(QScreen *screen)

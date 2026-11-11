@@ -183,6 +183,7 @@ public Q_SLOTS:
     QString evaluateScript(const QString &string);
     void setWallpaper(const QString &wallpaperPlugin, const QVariantMap &parameters, uint screenNum = 0);
     void activateLauncherMenu();
+    void prewarmApplets();
     QRgb color() const;
 
     QByteArray dumpCurrentLayoutJS() const;

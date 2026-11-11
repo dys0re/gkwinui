@@ -5,6 +5,8 @@
 
 #include "lindows_drm_probe.h"
 #include <QCoreApplication>
+#include <QDir>
+#include <QStandardPaths>
 #include <iostream>
 
 int main(int argc, char *argv[])
@@ -17,5 +19,9 @@ int main(int argc, char *argv[])
         std::cout << "LIBGL_ALWAYS_SOFTWARE=1\n";
         std::cout << "LINDOWS_SW_ROUTED=1\n";
     }
+    std::cout << "QML_DISK_CACHE=aot,bytecode\n";
+    const QString qmlCacheDir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + QStringLiteral("/qmlcache");
+    QDir().mkpath(qmlCacheDir);
+    std::cout << "QML_DISK_CACHE_PATH=" << qPrintable(qmlCacheDir) << "\n";
     return 0;
 }
