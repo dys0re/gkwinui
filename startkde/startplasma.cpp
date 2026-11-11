@@ -516,6 +516,9 @@ bool syncDBusEnvironment()
         if (!environment.contains(QStringLiteral("LIBGL_ALWAYS_SOFTWARE"))) {
             environment.insert(QStringLiteral("LIBGL_ALWAYS_SOFTWARE"), QStringLiteral("1"));
         }
+        if (!environment.contains(QStringLiteral("QT_WAYLAND_DISABLE_HW_INTEGRATION"))) {
+            environment.insert(QStringLiteral("QT_WAYLAND_DISABLE_HW_INTEGRATION"), QStringLiteral("1"));
+        }
         if (!environment.contains(QStringLiteral("QT_WAYLAND_HARDWARE_INTEGRATION"))) {
             environment.insert(QStringLiteral("QT_WAYLAND_HARDWARE_INTEGRATION"), QStringLiteral("shm"));
         }

@@ -187,6 +187,9 @@ inline void applySoftwareQuickRoutingEnvironment()
         if (qEnvironmentVariableIsEmpty("LIBGL_ALWAYS_SOFTWARE")) {
             qputenv("LIBGL_ALWAYS_SOFTWARE", "1");
         }
+        if (qEnvironmentVariableIsEmpty("QT_WAYLAND_DISABLE_HW_INTEGRATION")) {
+            qputenv("QT_WAYLAND_DISABLE_HW_INTEGRATION", "1");
+        }
         if (qEnvironmentVariableIsEmpty("QT_WAYLAND_HARDWARE_INTEGRATION")) {
             qputenv("QT_WAYLAND_HARDWARE_INTEGRATION", "shm");
         }

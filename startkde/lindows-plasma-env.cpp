@@ -17,6 +17,7 @@ int main(int argc, char *argv[])
         std::cout << "QSG_RENDER_LOOP=basic\n";
         std::cout << "GSK_RENDERER=cairo\n";
         std::cout << "LIBGL_ALWAYS_SOFTWARE=1\n";
+        std::cout << "QT_WAYLAND_DISABLE_HW_INTEGRATION=1\n";
         std::cout << "QT_WAYLAND_HARDWARE_INTEGRATION=shm\n";
         std::cout << "QT_XCB_GL_INTEGRATION=none\n";
         std::cout << "LINDOWS_SW_ROUTED=1\n";
