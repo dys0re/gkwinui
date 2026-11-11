@@ -140,6 +140,9 @@ PanelView::~PanelView()
 
 static bool vendorIsNVidia()
 {
+    if (QQuickWindow::sceneGraphBackend() == QLatin1String("software") || qEnvironmentVariableIsSet("LINDOWS_SW_ROUTED")) {
+        return false;
+    }
     QOffscreenSurface surface;
     surface.create();
     QOpenGLContext context;

@@ -5,6 +5,7 @@
 */
 
 #include "debug.h"
+#include "lindows_drm_probe.h"
 #include "startplasma.h"
 #include <KConfig>
 #include <KConfigGroup>
@@ -14,6 +15,7 @@
 
 int main(int argc, char **argv)
 {
+    applySoftwareQuickRoutingEnvironment();
     QCoreApplication app(argc, argv);
 
     createConfigDirectory();

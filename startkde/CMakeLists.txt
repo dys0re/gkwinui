@@ -38,6 +38,9 @@ target_link_libraries(startplasma-wayland PRIVATE
     startplasma
 )
 
+add_executable(lindows-plasma-env lindows-plasma-env.cpp)
+target_link_libraries(lindows-plasma-env PRIVATE Qt::Core)
+
 add_subdirectory(plasma-session)
 add_subdirectory(plasma-shutdown)
 add_subdirectory(session-shortcuts)
@@ -53,5 +56,6 @@ configure_file(config-startplasma.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config-sta
 
 install(TARGETS startplasma-x11 ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
 install(TARGETS startplasma-wayland ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
+install(TARGETS lindows-plasma-env ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
 install(PROGRAMS plasma-sourceenv.sh DESTINATION ${KDE_INSTALL_LIBEXECDIR})
 install(PROGRAMS plasma-dbus-run-session-if-needed DESTINATION ${KDE_INSTALL_LIBEXECDIR})

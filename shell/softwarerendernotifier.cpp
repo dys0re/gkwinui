@@ -5,6 +5,7 @@
 */
 
 #include "softwarerendernotifier.h"
+#include "../startkde/lindows_drm_probe.h"
 
 #include <QGuiApplication>
 #include <QIcon>
@@ -18,6 +19,15 @@
 
 void SoftwareRendererNotifier::notifyIfRelevant()
 {
+    // Cleanly suppress notification popup/icon when auto-routed on software/virtual GPUs
+    if (qEnvironmentVariableIsSet("LINDOWS_SW_ROUTED")
+        || qEnvironmentVariableIntValue("LINDOWS_FORCE_SW_QML") == 1
+        || qgetenv("KWIN_COMPOSE") == "Q"
+        || qgetenv("KWIN_COMPOSE") == "software"
+        || shouldRouteToSoftwareQuick()) {
+        return;
+    }
+
     if (QQuickWindow::sceneGraphBackend() == QLatin1String("software")) {
         auto group = KSharedConfig::openConfig()->group(QStringLiteral("softwarerenderer"));
         bool neverShow = group.readEntry("neverShow", false);

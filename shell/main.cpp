@@ -10,6 +10,7 @@
 #include "debug.h"
 #include "shellcorona.h"
 #include "softwarerendernotifier.h"
+#include "../startkde/lindows_drm_probe.h"
 #ifdef WITH_KUSERFEEDBACKCORE
 #include "userfeedback.h"
 #endif
@@ -39,6 +40,9 @@
 
 int main(int argc, char *argv[])
 {
+    // Auto-route unaccelerated DRM GPUs to Qt Quick Software backend before QGuiApplication
+    applySoftwareQuickRoutingEnvironment();
+
 #if QT_CONFIG(qml_debug)
     if (qEnvironmentVariableIsSet("PLASMA_ENABLE_QML_DEBUG")) {
         QQmlDebuggingEnabler::enableDebugging(true);
@@ -49,7 +53,9 @@ int main(int argc, char *argv[])
     format.setOption(QSurfaceFormat::ResetNotification);
     QSurfaceFormat::setDefaultFormat(format);
 
-    QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
+    if (qgetenv("QT_QUICK_BACKEND") != "software") {
+        QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
+    }
 
     QQuickWindow::setDefaultAlphaBuffer(true);
 

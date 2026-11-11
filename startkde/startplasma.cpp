@@ -33,6 +33,7 @@
 #include <unistd.h>
 
 #include <autostartscriptdesktopfile.h>
+#include "lindows_drm_probe.h"
 
 #include <KUpdateLaunchEnvironmentJob>
 
@@ -352,6 +353,9 @@ void runEnvironmentScripts()
 
 void setupPlasmaEnvironment()
 {
+    // Auto-route unaccelerated DRM GPUs to Qt Quick Software backend
+    applySoftwareQuickRoutingEnvironment();
+
     // Manually disable auto scaling because we are scaling above
     // otherwise apps that manually opt in for high DPI get auto scaled by the developer AND manually scaled by us
     qputenv("QT_AUTO_SCREEN_SCALE_FACTOR", "0");
