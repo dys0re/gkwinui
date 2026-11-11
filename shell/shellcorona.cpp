@@ -19,9 +19,11 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QMenu>
+#include <QPointer>
 #include <QQmlContext>
 #include <QQuickItemGrabResult>
 #include <QScreen>
+#include <QTimer>
 #include <QUrl>
 #include <QVariant>
 #include <QWindow>
@@ -1628,7 +1630,7 @@ void ShellCorona::createWaitingPanels()
             if (ready) {
                 QTimer::singleShot(400, Qt::VeryCoarseTimer, this, &ShellCorona::prewarmApplets);
             }
-        }, Qt::UniqueConnection);
+        });
         if (cont->isUiReady()) {
             QTimer::singleShot(400, Qt::VeryCoarseTimer, this, &ShellCorona::prewarmApplets);
         }
@@ -2931,12 +2933,19 @@ void ShellCorona::prewarmApplets()
     }
 
     // Only proceed once panel UI is ready or containments are available
+    static int s_prewarmRetries = 0;
     if (!hasPanelReady && !containments().isEmpty()) {
+        if (++s_prewarmRetries <= 15) {
+            QTimer::singleShot(350, Qt::CoarseTimer, this, &ShellCorona::prewarmApplets);
+        }
         return;
     }
 
     s_appletsPrewarmed = true;
 
+    // 1. Immediately pre-instantiate the primary application launcher (Kickoff/Kicker)
+    //    NEVER call fullRep->setVisible(false): PopupPlasmaWindow expects fullRepresentationItem
+    //    to remain visible inside its offscreen popup window until expanded toggles.
     for (auto *cont : containments()) {
         if (!cont) {
             continue;
@@ -2957,21 +2966,79 @@ void ShellCorona::prewarmApplets()
                 || pluginId.contains(QLatin1String("kicker"), Qt::CaseInsensitive)
                 || pluginId.contains(QLatin1String("launcher"), Qt::CaseInsensitive);
 
-            if (isLauncher) {
-                if (PlasmaQuick::AppletQuickItem::hasItemForApplet(applet)) {
-                    if (auto *appletItem = PlasmaQuick::AppletQuickItem::itemForApplet(applet)) {
-                        appletItem->setPreloadFullRepresentation(true);
-                        if (appletItem->isExpanded()) {
-                            appletItem->setExpanded(false);
-                        }
-                        if (QQuickItem *fullRep = appletItem->fullRepresentationItem()) {
-                            fullRep->setVisible(false);
-                        }
-                    }
+            if (isLauncher && PlasmaQuick::AppletQuickItem::hasItemForApplet(applet)) {
+                if (auto *appletItem = PlasmaQuick::AppletQuickItem::itemForApplet(applet)) {
+                    appletItem->setPreloadFullRepresentation(true);
                 }
             }
         }
     }
+
+    // 2. Staggered low-priority idle pre-warm for bottom-right functional bar applets
+    //    (Digital Clock + System Tray inner containment applets: Volume, Network, Brightness,
+    //    Notifications, Clipboard, etc.) — 1 applet every 160ms so the UI loop stays 100% fluid.
+    QTimer::singleShot(350, Qt::CoarseTimer, this, [this]() {
+        auto queue = std::make_shared<QList<QPointer<Plasma::Applet>>>();
+
+        for (auto *cont : containments()) {
+            if (!cont) {
+                continue;
+            }
+            const QString contPlugin = cont->pluginMetaData().pluginId();
+            const bool isPanel = (cont->containmentType() == Plasma::Containment::Panel
+                                  || cont->containmentType() == Plasma::Containment::CustomPanel);
+            const bool isInnerSystray = (contPlugin == QLatin1String("org.kde.plasma.private.systemtray"));
+
+            if (!isPanel && !isInnerSystray) {
+                continue;
+            }
+
+            const auto applets = cont->applets();
+            for (auto *applet : applets) {
+                if (!applet) {
+                    continue;
+                }
+                const QString pluginId = applet->pluginMetaData().pluginId();
+                if (isInnerSystray) {
+                    if (pluginId.contains(QLatin1String("kdeconnect"), Qt::CaseInsensitive)) {
+                        continue;
+                    }
+                    queue->append(applet);
+                } else {
+                    if (pluginId.contains(QLatin1String("digitalclock"), Qt::CaseInsensitive)
+                        || pluginId.contains(QLatin1String("calendar"), Qt::CaseInsensitive)
+                        || pluginId.contains(QLatin1String("systemtray"), Qt::CaseInsensitive)) {
+                        queue->append(applet);
+                    }
+                }
+            }
+        }
+
+        if (queue->isEmpty()) {
+            return;
+        }
+
+        auto *staggerTimer = new QTimer(this);
+        staggerTimer->setTimerType(Qt::CoarseTimer);
+        staggerTimer->setInterval(160);
+        connect(staggerTimer, &QTimer::timeout, this, [staggerTimer, queue]() {
+            while (!queue->isEmpty()) {
+                QPointer<Plasma::Applet> applet = queue->takeFirst();
+                if (!applet) {
+                    continue;
+                }
+                if (PlasmaQuick::AppletQuickItem::hasItemForApplet(applet)) {
+                    if (auto *appletItem = PlasmaQuick::AppletQuickItem::itemForApplet(applet)) {
+                        appletItem->setPreloadFullRepresentation(true);
+                        return;
+                    }
+                }
+            }
+            staggerTimer->stop();
+            staggerTimer->deleteLater();
+        });
+        staggerTimer->start();
+    });
 }
 
 void ShellCorona::activateTaskManagerEntry(int index)

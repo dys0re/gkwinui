@@ -61,7 +61,7 @@ QQC2.StackView {
                 unFlipped = !unFlipped;
             }
 
-            const isTransitionEnabled = systemTrayState.expanded;
+            const isTransitionEnabled = systemTrayState.expanded && mainStack.GraphicsInfo.api !== GraphicsInfo.Software;
             (mainStack.empty ? mainStack.push : mainStack.replace)(activeApplet.fullRepresentationItem, {
                 "width": Qt.binding(() => mainStack.width),
                 "height": Qt.binding(() => mainStack.height),

@@ -356,15 +356,6 @@ void setupPlasmaEnvironment()
     // Auto-route unaccelerated DRM GPUs to Qt Quick Software backend
     applySoftwareQuickRoutingEnvironment();
 
-    if (!qEnvironmentVariableIsSet("QML_DISK_CACHE")) {
-        qputenv("QML_DISK_CACHE", "aot,bytecode");
-    }
-    if (!qEnvironmentVariableIsSet("QML_DISK_CACHE_PATH")) {
-        const QString qmlCacheDir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + QStringLiteral("/qmlcache");
-        QDir().mkpath(qmlCacheDir);
-        qputenv("QML_DISK_CACHE_PATH", QFile::encodeName(qmlCacheDir));
-    }
-
     // Manually disable auto scaling because we are scaling above
     // otherwise apps that manually opt in for high DPI get auto scaled by the developer AND manually scaled by us
     qputenv("QT_AUTO_SCREEN_SCALE_FACTOR", "0");
@@ -526,15 +517,6 @@ bool syncDBusEnvironment()
             environment.insert(QStringLiteral("QT_XCB_GL_INTEGRATION"), QStringLiteral("none"));
         }
         environment.insert(QStringLiteral("LINDOWS_SW_ROUTED"), QStringLiteral("1"));
-    }
-
-    if (!environment.contains(QStringLiteral("QML_DISK_CACHE"))) {
-        environment.insert(QStringLiteral("QML_DISK_CACHE"), QStringLiteral("aot,bytecode"));
-    }
-    if (!environment.contains(QStringLiteral("QML_DISK_CACHE_PATH"))) {
-        const QString qmlCacheDir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + QStringLiteral("/qmlcache");
-        QDir().mkpath(qmlCacheDir);
-        environment.insert(QStringLiteral("QML_DISK_CACHE_PATH"), qmlCacheDir);
     }
 
     // At this point all environment variables are set, let's send it to the DBus session server to update the activation environment

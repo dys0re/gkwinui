@@ -33,6 +33,7 @@ Item {
         }
         height: trayHeading.height + bottomPadding + container.headingHeight
         Behavior on height {
+            enabled: plasmoidHeading.GraphicsInfo.api !== GraphicsInfo.Software
             NumberAnimation { duration: Kirigami.Units.shortDuration / 2; easing.type: Easing.InOutQuad }
         }
     }

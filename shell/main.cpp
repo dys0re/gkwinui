@@ -44,16 +44,6 @@ int main(int argc, char *argv[])
     // Auto-route unaccelerated DRM GPUs to Qt Quick Software backend and SHM Wayland integration before QGuiApplication
     applySoftwareQuickRoutingEnvironment();
 
-    // Ensure persistent QML disk cache is active
-    if (!qEnvironmentVariableIsSet("QML_DISK_CACHE")) {
-        qputenv("QML_DISK_CACHE", "aot,bytecode");
-    }
-    if (!qEnvironmentVariableIsSet("QML_DISK_CACHE_PATH")) {
-        const QString qmlCacheDir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + QStringLiteral("/qmlcache");
-        QDir().mkpath(qmlCacheDir);
-        qputenv("QML_DISK_CACHE_PATH", QFile::encodeName(qmlCacheDir));
-    }
-
 #if QT_CONFIG(qml_debug)
     if (qEnvironmentVariableIsSet("PLASMA_ENABLE_QML_DEBUG")) {
         QQmlDebuggingEnabler::enableDebugging(true);

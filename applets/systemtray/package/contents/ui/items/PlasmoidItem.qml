@@ -131,6 +131,15 @@ AbstractItem {
     }
 
     Connections {
+        target: plasmoidContainer.applet
+        function onFullRepresentationItemChanged() {
+            if (plasmoidContainer.applet) {
+                preloadFullRepresentationItem(plasmoidContainer.applet.fullRepresentationItem)
+            }
+        }
+    }
+
+    Connections {
         enabled: plasmoidContainer.applet !== null
         target: findMouseArea(
             plasmoidContainer.applet?.compactRepresentationItem ??

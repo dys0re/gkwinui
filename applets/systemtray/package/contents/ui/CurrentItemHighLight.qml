@@ -159,7 +159,7 @@ KSvg.FrameSvgItem {
     }
     Behavior on width {
         id: widthAnim
-        enabled: animationEnabled
+        enabled: animationEnabled && currentItemHighLight.GraphicsInfo.api !== GraphicsInfo.Software
         NumberAnimation {
             duration: Kirigami.Units.longDuration
             easing.type: Easing.InOutCubic
@@ -167,7 +167,7 @@ KSvg.FrameSvgItem {
     }
     Behavior on height {
         id: heightAnim
-        enabled: animationEnabled
+        enabled: animationEnabled && currentItemHighLight.GraphicsInfo.api !== GraphicsInfo.Software
         NumberAnimation {
             duration: Kirigami.Units.longDuration
             easing.type: Easing.InOutCubic
