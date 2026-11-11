@@ -489,6 +489,8 @@ static void dropSessionVarsFromSystemdEnvironment()
 // In that case, the update in startplasma might be too late.
 bool syncDBusEnvironment()
 {
+    applySoftwareQuickRoutingEnvironment();
+
     dropSessionVarsFromSystemdEnvironment();
 
     // Shell and confinement variables are filtered out of things we explicitly load, but they
@@ -499,6 +501,37 @@ bool syncDBusEnvironment()
         if (isShellVariable(QStringView(name)) || isConfinementVariable(QStringView(name))) {
             environment.remove(name);
         }
+    }
+
+    if (shouldRouteToSoftwareQuick()) {
+        if (!environment.contains(QStringLiteral("QT_QUICK_BACKEND"))) {
+            environment.insert(QStringLiteral("QT_QUICK_BACKEND"), QStringLiteral("software"));
+        }
+        if (!environment.contains(QStringLiteral("QSG_RENDER_LOOP"))) {
+            environment.insert(QStringLiteral("QSG_RENDER_LOOP"), QStringLiteral("basic"));
+        }
+        if (!environment.contains(QStringLiteral("GSK_RENDERER"))) {
+            environment.insert(QStringLiteral("GSK_RENDERER"), QStringLiteral("cairo"));
+        }
+        if (!environment.contains(QStringLiteral("LIBGL_ALWAYS_SOFTWARE"))) {
+            environment.insert(QStringLiteral("LIBGL_ALWAYS_SOFTWARE"), QStringLiteral("1"));
+        }
+        if (!environment.contains(QStringLiteral("QT_WAYLAND_HARDWARE_INTEGRATION"))) {
+            environment.insert(QStringLiteral("QT_WAYLAND_HARDWARE_INTEGRATION"), QStringLiteral("shm"));
+        }
+        if (!environment.contains(QStringLiteral("QT_XCB_GL_INTEGRATION"))) {
+            environment.insert(QStringLiteral("QT_XCB_GL_INTEGRATION"), QStringLiteral("none"));
+        }
+        environment.insert(QStringLiteral("LINDOWS_SW_ROUTED"), QStringLiteral("1"));
+    }
+
+    if (!environment.contains(QStringLiteral("QML_DISK_CACHE"))) {
+        environment.insert(QStringLiteral("QML_DISK_CACHE"), QStringLiteral("aot,bytecode"));
+    }
+    if (!environment.contains(QStringLiteral("QML_DISK_CACHE_PATH"))) {
+        const QString qmlCacheDir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + QStringLiteral("/qmlcache");
+        QDir().mkpath(qmlCacheDir);
+        environment.insert(QStringLiteral("QML_DISK_CACHE_PATH"), qmlCacheDir);
     }
 
     // At this point all environment variables are set, let's send it to the DBus session server to update the activation environment

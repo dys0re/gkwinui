@@ -41,7 +41,7 @@
 
 int main(int argc, char *argv[])
 {
-    // Auto-route unaccelerated DRM GPUs to Qt Quick Software backend before QGuiApplication
+    // Auto-route unaccelerated DRM GPUs to Qt Quick Software backend and SHM Wayland integration before QGuiApplication
     applySoftwareQuickRoutingEnvironment();
 
     // Ensure persistent QML disk cache is active

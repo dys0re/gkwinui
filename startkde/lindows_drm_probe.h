@@ -175,10 +175,24 @@ inline bool shouldRouteToSoftwareQuick()
 inline void applySoftwareQuickRoutingEnvironment()
 {
     if (shouldRouteToSoftwareQuick()) {
-        qputenv("QT_QUICK_BACKEND", "software");
-        qputenv("QSG_RENDER_LOOP", "basic");
-        qputenv("GSK_RENDERER", "cairo");
-        qputenv("LIBGL_ALWAYS_SOFTWARE", "1");
+        if (qEnvironmentVariableIsEmpty("QT_QUICK_BACKEND")) {
+            qputenv("QT_QUICK_BACKEND", "software");
+        }
+        if (qEnvironmentVariableIsEmpty("QSG_RENDER_LOOP")) {
+            qputenv("QSG_RENDER_LOOP", "basic");
+        }
+        if (qEnvironmentVariableIsEmpty("GSK_RENDERER")) {
+            qputenv("GSK_RENDERER", "cairo");
+        }
+        if (qEnvironmentVariableIsEmpty("LIBGL_ALWAYS_SOFTWARE")) {
+            qputenv("LIBGL_ALWAYS_SOFTWARE", "1");
+        }
+        if (qEnvironmentVariableIsEmpty("QT_WAYLAND_HARDWARE_INTEGRATION")) {
+            qputenv("QT_WAYLAND_HARDWARE_INTEGRATION", "shm");
+        }
+        if (qEnvironmentVariableIsEmpty("QT_XCB_GL_INTEGRATION")) {
+            qputenv("QT_XCB_GL_INTEGRATION", "none");
+        }
         qputenv("LINDOWS_SW_ROUTED", "1");
     }
 }

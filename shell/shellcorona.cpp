@@ -79,6 +79,7 @@ using namespace std::chrono_literals;
 using namespace Qt::StringLiterals;
 
 static const int s_configSyncDelay = 10000; // 10 seconds
+static bool s_appletsPrewarmed = false;
 
 Q_DECLARE_METATYPE(QColor)
 
@@ -360,6 +361,7 @@ void ShellCorona::init()
 
 ShellCorona::~ShellCorona()
 {
+    s_appletsPrewarmed = false;
     while (!containments().isEmpty()) {
         // Deleting a containment will remove it from the list due to QObject::destroyed connect in Corona
         // Deleting a containment in turn also kills any panel views
@@ -851,7 +853,6 @@ void ShellCorona::load()
     if (!m_waitingPanels.isEmpty()) {
         m_waitingPanelsTimer.start();
     }
-    QTimer::singleShot(300, this, &ShellCorona::prewarmApplets);
 
     if (config()->isImmutable() || !KAuthorized::authorize(QStringLiteral("plasma/plasmashell/unlockedDesktop"))) {
         setImmutability(Plasma::Types::SystemImmutable);
@@ -971,6 +972,7 @@ void ShellCorona::showAlternativesForApplet(Plasma::Applet *applet)
 
 void ShellCorona::unload()
 {
+    s_appletsPrewarmed = false;
     if (m_shell.isEmpty() || immutable()) {
         return;
     }
@@ -1505,7 +1507,6 @@ void ShellCorona::addOutput(QScreen *screen)
     if (!m_waitingPanels.isEmpty()) {
         m_waitingPanelsTimer.start();
     }
-    QTimer::singleShot(300, this, &ShellCorona::prewarmApplets);
 
     if (!m_screenReorderInProgress) {
         Q_EMIT availableScreenRectChanged(m_screenPool->idForScreen(screen));
@@ -1625,12 +1626,14 @@ void ShellCorona::createWaitingPanels()
 
         connect(cont, &Plasma::Containment::uiReadyChanged, this, [this](bool ready) {
             if (ready) {
-                QTimer::singleShot(300, this, &ShellCorona::prewarmApplets);
+                QTimer::singleShot(400, Qt::VeryCoarseTimer, this, &ShellCorona::prewarmApplets);
             }
         }, Qt::UniqueConnection);
+        if (cont->isUiReady()) {
+            QTimer::singleShot(400, Qt::VeryCoarseTimer, this, &ShellCorona::prewarmApplets);
+        }
     }
     m_waitingPanels = stillWaitingPanels;
-    QTimer::singleShot(300, this, &ShellCorona::prewarmApplets);
 }
 
 void ShellCorona::panelContainmentDestroyed(QObject *obj)
@@ -2912,12 +2915,28 @@ void ShellCorona::activateLauncherMenu(const QString &screenName)
 
 void ShellCorona::prewarmApplets()
 {
-    static bool s_alreadyPrewarmed = false;
-    if (s_alreadyPrewarmed) {
+    if (s_appletsPrewarmed) {
         return;
     }
 
-    bool foundLauncher = false;
+    bool hasPanelReady = false;
+    for (auto *cont : containments()) {
+        if (cont && (cont->containmentType() == Plasma::Containment::Panel
+                     || cont->containmentType() == Plasma::Containment::CustomPanel)) {
+            if (cont->isUiReady()) {
+                hasPanelReady = true;
+                break;
+            }
+        }
+    }
+
+    // Only proceed once panel UI is ready or containments are available
+    if (!hasPanelReady && !containments().isEmpty()) {
+        return;
+    }
+
+    s_appletsPrewarmed = true;
+
     for (auto *cont : containments()) {
         if (!cont) {
             continue;
@@ -2941,30 +2960,16 @@ void ShellCorona::prewarmApplets()
             if (isLauncher) {
                 if (PlasmaQuick::AppletQuickItem::hasItemForApplet(applet)) {
                     if (auto *appletItem = PlasmaQuick::AppletQuickItem::itemForApplet(applet)) {
-                        foundLauncher = true;
                         appletItem->setPreloadFullRepresentation(true);
+                        if (appletItem->isExpanded()) {
+                            appletItem->setExpanded(false);
+                        }
                         if (QQuickItem *fullRep = appletItem->fullRepresentationItem()) {
-                            fullRep->polish();
-                            const auto childWindows = appletItem->findChildren<QWindow *>() + fullRep->findChildren<QWindow *>();
-                            for (QWindow *w : childWindows) {
-                                if (w && !w->isVisible()) {
-                                    w->create();
-                                }
-                            }
+                            fullRep->setVisible(false);
                         }
                     }
                 }
             }
-        }
-    }
-
-    if (foundLauncher) {
-        s_alreadyPrewarmed = true;
-    } else {
-        static int s_retryCount = 0;
-        if (s_retryCount < 5) {
-            s_retryCount++;
-            QTimer::singleShot(250, this, &ShellCorona::prewarmApplets);
         }
     }
 }

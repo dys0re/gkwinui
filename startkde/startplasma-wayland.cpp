@@ -77,6 +77,9 @@ int main(int argc, char **argv)
     runStartupConfig();
     qputenv("XDG_SESSION_TYPE", "wayland");
 
+    // Enforce software routing and SHM integration before syncing DBus / systemd environment
+    applySoftwareQuickRoutingEnvironment();
+
     auto oldSystemdEnvironment = getSystemdEnvironment();
     if (!syncDBusEnvironment()) {
         out << "Could not sync environment to dbus.\n";
